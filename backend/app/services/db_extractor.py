@@ -131,7 +131,7 @@ class DBExtractor:
 
                 from app.services.gemini_service import GeminiService
                 gemini_svc = GeminiService()
-                text_policies = gemini_svc.extract_text_policies_from_db_objects(triggers, functions, table_names)
+                text_policies = gemini_svc.extract_text_policies_from_db_objects(triggers, functions, table_names, schema_metadata)
                 self.logger.warning(f"DBExtractor: Synthesized {len(text_policies)} text-based business policies.")
             except Exception as policy_err:
                 self.logger.warning(f"DBExtractor: Text-policy extraction skipped: {policy_err}")
@@ -156,5 +156,10 @@ class DBExtractor:
                 "message": f"Connection failed: {str(e)}",
                 "rules_extracted": len(mocked_rules),
                 "rules": mocked_rules,
-                "example_statement": "A Waiter is a subclass of Employee. Employees must have at least 1 Role."
+                "example_statement": "A Waiter is a subclass of Employee. Employees must have at least 1 Role.",
+                "text_policies": [
+                    {"title": "User Authentication Restriction", "body": "Only authenticated users with verified identities are permitted to register actions or create records in the system.", "source_type": "inferred"},
+                    {"title": "Employee Role Requirement", "body": "An Employee is authorized to perform system actions only if they have been assigned at least one active, valid Role.", "source_type": "inferred"},
+                    {"title": "Waiter Action Limitations", "body": "Users with the role of Waiter are authorized to record customer orders but are prohibited from updating billing or payment transactions.", "source_type": "inferred"}
+                ]
             }

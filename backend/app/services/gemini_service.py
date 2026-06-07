@@ -333,25 +333,38 @@ class GeminiService:
     # Text-policy extraction & analysis (default reasoning mode)
     # ─────────────────────────────────────────────────────────────────────────────
 
-    def extract_text_policies_from_db_objects(self, triggers, functions, table_names):
-        """Synthesize plain-English business policies from SQL triggers and functions."""
+    def extract_text_policies_from_db_objects(self, triggers, functions, table_names, schema_metadata=None):
+        """Synthesize plain-English business policies from SQL triggers, functions, and schema metadata."""
         if not self.api_key:
             logger.warning("[PolicyExtract] No API key — using table-name fallback.")
             return self._infer_policies_from_tables(table_names)
-        if not triggers and not functions:
-            return self._infer_policies_from_tables(table_names)
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
-        prompt = (
-            "You are a business analyst AI. Given SQL triggers and functions from a production database, "
-            "synthesize clear natural-language business rules that these objects enforce.\n"
-            "Focus on: access control, data integrity, workflow constraints, cascade effects.\n\n"
-            f"Tables: {json.dumps(table_names)}\n"
-            f"Triggers:\n{json.dumps(triggers, indent=2)}\n"
-            f"Functions:\n{json.dumps(functions, indent=2)}\n\n"
-            "Return a JSON array only (no markdown):\n"
-            "[{\"title\": \"<short name>\", \"body\": \"<1-3 sentence rule>\", \"source_type\": \"trigger|function|inferred\"}]"
-        )
+        
+        if triggers or functions:
+            prompt = (
+                "You are a business analyst AI. Given SQL triggers, functions, and database schema, "
+                "synthesize clear natural-language business rules that describe who can do what, "
+                "what actions can be performed, and under what conditions (e.g., authorization, user role "
+                "capabilities, action limits, and permissions).\n\n"
+                f"Tables: {json.dumps(table_names)}\n"
+                f"Triggers:\n{json.dumps(triggers, indent=2)}\n"
+                f"Functions:\n{json.dumps(functions, indent=2)}\n"
+                f"Schema Metadata: {json.dumps(schema_metadata) if schema_metadata else 'None'}\n\n"
+                "Return a JSON array only (no markdown):\n"
+                "[{\"title\": \"<short name>\", \"body\": \"<1-3 sentence rule focusing on who can do what and what can be done>\", \"source_type\": \"trigger|function|inferred\"}]"
+            )
+        else:
+            prompt = (
+                "You are a business analyst AI. Given the database schema tables, columns, and foreign keys, "
+                "synthesize clear natural-language business rules that describe who can do what, "
+                "what actions can be performed, and under what conditions (e.g., authorization, user role "
+                "capabilities, action limits, and permissions) in this domain.\n\n"
+                f"Schema Metadata:\n{json.dumps(schema_metadata if schema_metadata else table_names, indent=2)}\n\n"
+                "Return a JSON array only (no markdown):\n"
+                "[{\"title\": \"<short name>\", \"body\": \"<1-3 sentence rule focusing on who can do what and what can be done>\", \"source_type\": \"inferred\"}]"
+            )
+
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json"}}
         import time as _time
         for attempt in range(1, 4):
@@ -361,7 +374,7 @@ class GeminiService:
                     _time.sleep(5 * attempt); continue
                 r.raise_for_status()
                 policies = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
-                logger.info(f"[PolicyExtract] Extracted {len(policies)} text policies.")
+                logger.info(f"[PolicyExtract] Extracted {len(policies)} text policies focusing on business rules.")
                 return policies if isinstance(policies, list) else []
             except Exception as e:
                 logger.error(f"[PolicyExtract] Attempt {attempt}/3: {e}")
