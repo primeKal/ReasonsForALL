@@ -1,0 +1,59 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Environment / secrets ────────────────────────────────
+.env
+.env.*
+!.env.example       # keep the example template
+
+# ─── Node / Next.js ───────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Testing ──────────────────────────────────────────────
+coverage/
+.pytest_cache/
+playwright-report/
+test-results/
+
+# ─── Misc ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Supabase ─────────────────────────────────────────────
+supabase/.temp/
+
+# ─── Test auth state (session tokens) ─────────────────────
+frontend/tests/.auth-state.json
+frontend/tests/.auth-storage.json
+
+# ─── IDE ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
