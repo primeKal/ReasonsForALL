@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import tenant, reasoning, server
 import logging
+import os
 
 # Configure root logger so all app-level INFO/WARNING logs appear in the terminal
 logging.basicConfig(
@@ -16,11 +17,16 @@ app = FastAPI(
     version="1.0.0.1"
 )
 
+# ALLOWED_ORIGINS env var = comma-separated list of frontend URLs
+# e.g. "https://your-app.vercel.app,https://reasonsforall.com"
+_extra_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        *_extra_origins,
     ],
     allow_credentials=True,
     allow_methods=["*"],
