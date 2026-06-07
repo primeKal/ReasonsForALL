@@ -28,14 +28,62 @@ class OntologyEngine:
                         classes[class_name] = types.new_class(class_name, (Thing,))
                         logger.info(f"  -> Rehydrated Class Concept: '{class_name}' (subClassOf Thing)")
             
-            # 2. Build subclass subsumption hierarchies
+            # 2. Build subclass subsumption hierarchies (cycle-safe)
+            def _get_all_ancestors(cls, visited=None):
+                """Walk the MRO upward to collect all ancestor class objects."""
+                if visited is None:
+                    visited = set()
+                for base in cls.__bases__:
+                    if base not in visited:
+                        visited.add(base)
+                        _get_all_ancestors(base, visited)
+                return visited
+
             for q in quads:
                 if q.get("type") == "ClassHierarchy" or q.get("predicate") == "subClassOf":
                     child = q["subject"]
                     parent = q["object"]
-                    if child in classes and parent in classes:
-                        classes[child].__bases__ = (classes[parent],)
+
+                    if child not in classes or parent not in classes:
+                        continue  # one side missing — skip silently
+
+                    child_cls  = classes[child]
+                    parent_cls = classes[parent]
+
+                    # Skip self-references
+                    if child_cls is parent_cls or child == parent:
+                        logger.warning(f"  -> Skipped self-referencing hierarchy: {child} ⊑ {child}")
+                        continue
+
+                    # Skip if parent is already an ancestor (would create a cycle)
+                    ancestors = _get_all_ancestors(child_cls)
+                    if parent_cls in ancestors:
+                        logger.warning(
+                            f"  -> Skipped cycle-forming hierarchy: {child} ⊑ {parent} "
+                            f"('{parent}' is already an ancestor of '{child}')"
+                        )
+                        continue
+
+                    # Skip if child is already an ancestor of parent (reverse cycle)
+                    parent_ancestors = _get_all_ancestors(parent_cls)
+                    if child_cls in parent_ancestors:
+                        logger.warning(
+                            f"  -> Skipped reverse-cycle hierarchy: {child} ⊑ {parent} "
+                            f"('{child}' is already an ancestor of '{parent}')"
+                        )
+                        continue
+
+                    try:
+                        child_cls.__bases__ = (parent_cls,)
                         logger.info(f"  -> Rehydrated Subsumption Path: {child} ⊑ {parent}")
+                    except TypeError as cycle_err:
+                        # Fallback: use is_a instead of __bases__ to avoid the metaclass conflict
+                        logger.warning(
+                            f"  -> __bases__ assignment failed for {child} ⊑ {parent} "
+                            f"({cycle_err}). Using is_a fallback."
+                        )
+                        child_cls.is_a.append(parent_cls)
+
             
             # 3. Build object properties (relationships)
             properties = {}
