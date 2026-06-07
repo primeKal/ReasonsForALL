@@ -16,6 +16,8 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const [server, setServer] = useState<any>(null)
   const [concepts, setConcepts] = useState<any[]>([])
   const [rules, setRules] = useState<any[]>([])
+  const [textPolicies, setTextPolicies] = useState<any[]>([])
+  const [rulesSubTab, setRulesSubTab] = useState<'logical' | 'text'>('text')
   const [apiKeys, setApiKeys] = useState<any[]>([])
   const [copiedEndpoint, setCopiedEndpoint] = useState(false)
   const [revealedKeys, setRevealedKeys] = useState<Record<string, boolean>>({})
@@ -133,10 +135,11 @@ export default function ServerDetailsPage({ params }: { params: any }) {
       const baseUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}`
       
       try {
-        const [serverRes, conceptsRes, rulesRes, keysRes] = await Promise.all([
+        const [serverRes, conceptsRes, rulesRes, policiesRes, keysRes] = await Promise.all([
           fetch(baseUrl, { headers }),
           fetch(`${baseUrl}/concepts`, { headers }),
           fetch(`${baseUrl}/rules`, { headers }),
+          fetch(`${baseUrl}/text_policies`, { headers }),
           fetch(`${baseUrl}/api_keys`, { headers })
         ])
 
@@ -148,6 +151,10 @@ export default function ServerDetailsPage({ params }: { params: any }) {
         if (rulesRes.ok) {
            const data = await rulesRes.json()
            setRules(data.rules || [])
+        }
+        if (policiesRes.ok) {
+           const data = await policiesRes.json()
+           setTextPolicies(data.policies || [])
         }
         if (keysRes.ok) {
            setApiKeys(await keysRes.json())
@@ -443,62 +450,144 @@ export default function ServerDetailsPage({ params }: { params: any }) {
 
           {activeTab === 'rules' && (
             <Card>
-              <CardHeader>
-                <CardTitle>Guardrail Rules</CardTitle>
-                <CardDescription>Business constraints and relationships that ensure your AI agents behave predictably.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border border-border/50 overflow-hidden overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-muted text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3">Entity</th>
-                        <th className="px-4 py-3">Relationship</th>
-                        <th className="px-4 py-3">Target</th>
-                        <th className="px-4 py-3">OWL Quantifier</th>
-                        <th className="px-4 py-3">Type</th>
-                        <th className="px-4 py-3">Description Logic / Axiom</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      {rules.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No active rules</td></tr> : null}
-                      {rules.map((rule, idx) => (
-                        <tr key={idx} className="hover:bg-muted/10 transition-colors">
-                          <td className="px-4 py-3 font-medium">{rule.subject}</td>
-                          <td className="px-4 py-3 text-primary">{rule.predicate}</td>
-                          <td className="px-4 py-3">{rule.object}</td>
-                          <td className="px-4 py-3">
-                            {rule.quantifier && rule.quantifier !== 'none' ? (
-                              <span className="px-2 py-0.5 rounded text-xs bg-blue-500/10 text-blue-500 font-bold capitalize">
-                                {rule.quantifier} {rule.cardinality_value !== undefined && rule.cardinality_value !== null ? `(${rule.cardinality_value})` : ''}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                              rule.type === 'Relationship' || rule.type === 'ObjectProperty' 
-                                ? 'bg-yellow-500/10 text-yellow-500' 
-                                : rule.type === 'ClassHierarchy'
-                                ? 'bg-emerald-500/10 text-emerald-500'
-                                : 'bg-purple-500/10 text-purple-500'
-                            }`}>
-                              {rule.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs max-w-[280px] truncate" title={rule.description}>
-                            {rule.description || '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {rules.length >= 1000 && (
-                  <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                    <p className="text-sm text-orange-500 font-medium">⚠️ Free Trial Constraint: You have reached the maximum of 1000 active rules. Agents attempting complex multi-table joins will bypass validation.</p>
+              <CardHeader className="pb-3 border-b border-border/40">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle>Guardrail Rules & Policies</CardTitle>
+                    <CardDescription>
+                      {rulesSubTab === 'text'
+                        ? 'Natural language business policies extracted from triggers, functions, and database schema.'
+                        : 'Formal Description Logic constraints mapped from database keys and hierarchies.'}
+                    </CardDescription>
                   </div>
+                  
+                  {/* Rules Sub-Tab Toggle */}
+                  <div className="flex items-center gap-1.5 bg-muted/60 border border-border/50 rounded-xl p-1 flex-shrink-0">
+                    <button
+                      onClick={() => setRulesSubTab('text')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        rulesSubTab === 'text'
+                          ? 'bg-primary text-white shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      📋 Text Policies ({textPolicies.length})
+                    </button>
+                    <button
+                      onClick={() => setRulesSubTab('logical')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                        rulesSubTab === 'logical'
+                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      🧪 Logical Rules ({rules.length})
+                    </button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {rulesSubTab === 'text' ? (
+                  <div className="space-y-4">
+                    {textPolicies.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground border border-dashed border-border/45 rounded-xl bg-muted/5">
+                        No text-based business policies extracted for this server. 
+                        <br />
+                        <span className="text-xs text-muted-foreground/80 mt-1 block">
+                          Tip: Use triggers or functions in your schema, or sync to automatically extract policies.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {textPolicies.map((policy) => (
+                          <div
+                            key={policy.id || policy.title}
+                            className="p-5 rounded-xl border border-border/50 bg-card hover:border-primary/30 transition-all shadow-sm hover:shadow-md relative overflow-hidden"
+                          >
+                            {/* Accent line based on source_type */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                              policy.source_type === 'trigger'
+                                ? 'bg-orange-500'
+                                : policy.source_type === 'function'
+                                ? 'bg-indigo-500'
+                                : 'bg-blue-500'
+                            }`} />
+                            
+                            <div className="pl-2">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-bold text-foreground text-base">{policy.title}</h3>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                  policy.source_type === 'trigger'
+                                    ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                                    : policy.source_type === 'function'
+                                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                    : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                }`}>
+                                  {policy.source_type}
+                                </span>
+                              </div>
+                              <p className="text-muted-foreground text-sm leading-relaxed">{policy.body}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-md border border-border/50 overflow-hidden overflow-x-auto">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-muted text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-3">Entity</th>
+                            <th className="px-4 py-3">Relationship</th>
+                            <th className="px-4 py-3">Target</th>
+                            <th className="px-4 py-3">OWL Quantifier</th>
+                            <th className="px-4 py-3">Type</th>
+                            <th className="px-4 py-3">Description Logic / Axiom</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {rules.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No active rules</td></tr> : null}
+                          {rules.map((rule, idx) => (
+                            <tr key={idx} className="hover:bg-muted/10 transition-colors">
+                              <td className="px-4 py-3 font-medium">{rule.subject}</td>
+                              <td className="px-4 py-3 text-primary">{rule.predicate}</td>
+                              <td className="px-4 py-3">{rule.object}</td>
+                              <td className="px-4 py-3">
+                                {rule.quantifier && rule.quantifier !== 'none' ? (
+                                  <span className="px-2 py-0.5 rounded text-xs bg-blue-500/10 text-blue-500 font-bold capitalize">
+                                    {rule.quantifier} {rule.cardinality_value !== undefined && rule.cardinality_value !== null ? `(${rule.cardinality_value})` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                  rule.type === 'Relationship' || rule.type === 'ObjectProperty' 
+                                    ? 'bg-yellow-500/10 text-yellow-500' 
+                                    : rule.type === 'ClassHierarchy'
+                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                    : 'bg-purple-500/10 text-purple-500'
+                                }`}>
+                                  {rule.type}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground text-xs max-w-[280px] truncate" title={rule.description}>
+                                {rule.description || '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {rules.length >= 1000 && (
+                      <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                        <p className="text-sm text-orange-500 font-medium">⚠️ Free Trial Constraint: You have reached the maximum of 1000 active rules. Agents attempting complex multi-table joins will bypass validation.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

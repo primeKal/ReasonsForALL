@@ -145,6 +145,33 @@ def get_server_rules(server_id: str):
         "rules": [r for r in server["rules"] if r.get("type") != "ClassDefinition"] # Filter out plain class definitions
     }
 
+@router.get("/{server_id}/text_policies")
+def get_server_text_policies(server_id: str):
+    """
+    Returns the plain-English business rules (text-based policies) for the server.
+    """
+    server = _get_or_hydrate_server(server_id)
+    try:
+        policies = supabase_client.get_text_policies_for_server(
+            server["tenant_id"], server["server_config_id"]
+        )
+        return {
+            "server_id": server_id,
+            "policies": [
+                {
+                    "id": p.get("id"),
+                    "title": p.get("title"),
+                    "body": p.get("body"),
+                    "source_type": p.get("source_type", "inferred"),
+                    "created_at": p.get("created_at")
+                }
+                for p in policies
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch text policies for server {server_id}: {e}")
+        return {"server_id": server_id, "policies": []}
+
 @router.get("/{server_id}/api_keys", response_model=List[APIKeyResponse])
 def list_api_keys(server_id: str):
     """
