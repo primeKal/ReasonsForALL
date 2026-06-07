@@ -8,8 +8,8 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/30">
       <header className="px-6 lg:px-14 h-20 flex items-center justify-between border-b border-border/50 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center font-bold text-white shadow-lg">R</div>
-          <span className="text-xl font-bold tracking-tight">ReasonsForALL</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center font-bold text-white shadow-lg">R</div>
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">ReasonsForALL</span>
         </div>
         <nav className="hidden md:flex items-center gap-8 font-medium text-sm text-muted-foreground">
           <Link href="#features" className="hover:text-primary transition-colors">Features</Link>
@@ -57,7 +57,7 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-3 gap-8">
               <Card className="border-border/50 shadow-lg bg-background/60 backdrop-blur-sm">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-2xl mb-4">🛡️</div>
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center text-2xl mb-4">🛡️</div>
                   <CardTitle>Zero Hallucinations</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -66,16 +66,16 @@ export default function LandingPage() {
               </Card>
               <Card className="border-border/50 shadow-lg bg-background/60 backdrop-blur-sm">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-2xl mb-4">⚡</div>
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center text-2xl mb-4">⚡</div>
                   <CardTitle>Stateless Quad-Store</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Never cache raw records. Our hybrid TBox/ABox architecture extracts your schema blueprint and tests agent parameters in isolated memory.</p>
+                  <p className="text-muted-foreground">Never cache raw records. Our hybrid semantic architecture extracts your schema blueprint and tests agent parameters in isolated memory.</p>
                 </CardContent>
               </Card>
               <Card className="border-border/50 shadow-lg bg-background/60 backdrop-blur-sm">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-2xl mb-4">🔌</div>
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center text-2xl mb-4">🔌</div>
                   <CardTitle>Multi-Dialect Support</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -93,31 +93,31 @@ export default function LandingPage() {
             <div className="space-y-12">
               <div className="flex flex-col md:flex-row gap-8 items-center">
                 <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white font-bold text-lg mb-2">1</div>
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-500 text-white font-bold text-lg mb-2">1</div>
                   <h3 className="text-2xl font-bold">Connect your Database</h3>
                   <p className="text-muted-foreground">Provide a read-only string. We automatically inspect your relational tables and foreign keys without caching any row data.</p>
                 </div>
-                <div className="flex-1 bg-muted/50 rounded-2xl p-6 border border-border/50 aspect-video flex items-center justify-center shadow-inner">
+                <div className="flex-1 bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl p-6 border border-primary/10 aspect-video flex items-center justify-center shadow-inner">
                   <div className="text-4xl">🔗 ➜ 🗄️</div>
                 </div>
               </div>
               <div className="flex flex-col md:flex-row-reverse gap-8 items-center">
                 <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white font-bold text-lg mb-2">2</div>
-                  <h3 className="text-2xl font-bold">Extract Ontology Axioms</h3>
-                  <p className="text-muted-foreground">Our semantic engine translates relational constraints into formal Web Ontology Language (OWL) triples, saved to a secure Quad-Store.</p>
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-500 text-white font-bold text-lg mb-2">2</div>
+                  <h3 className="text-2xl font-bold">Extract Semantic Rules</h3>
+                  <p className="text-muted-foreground">Our semantic engine translates relational constraints into formal logic triples, saved to a secure Quad-Store for fast inference.</p>
                 </div>
-                <div className="flex-1 bg-muted/50 rounded-2xl p-6 border border-border/50 aspect-video flex items-center justify-center shadow-inner">
+                <div className="flex-1 bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl p-6 border border-primary/10 aspect-video flex items-center justify-center shadow-inner">
                   <div className="text-4xl">🗄️ ➜ 🧠</div>
                 </div>
               </div>
               <div className="flex flex-col md:flex-row gap-8 items-center">
                 <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-white font-bold text-lg mb-2">3</div>
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-500 text-white font-bold text-lg mb-2">3</div>
                   <h3 className="text-2xl font-bold">Real-Time Validation</h3>
-                  <p className="text-muted-foreground">Send agent payloads to our API. We re-hydrate the graph in application memory, run description logic checks, and respond in &lt; 5ms.</p>
+                  <p className="text-muted-foreground">Send agent payloads to our API. We re-hydrate the rule graph in application memory, run description logic checks, and respond in &lt; 5ms.</p>
                 </div>
-                <div className="flex-1 bg-muted/50 rounded-2xl p-6 border border-border/50 aspect-video flex items-center justify-center shadow-inner">
+                <div className="flex-1 bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl p-6 border border-primary/10 aspect-video flex items-center justify-center shadow-inner">
                   <div className="text-4xl">🤖 ➜ ✅</div>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export default function LandingPage() {
                 </CardContent>
               </Card>
               <Card className="border-primary/50 shadow-xl bg-background relative overflow-hidden">
-                <div className="absolute top-0 inset-x-0 h-1 bg-primary"></div>
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-blue-400 to-indigo-500"></div>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
@@ -178,7 +178,7 @@ export default function LandingPage() {
       <footer className="border-t border-border/50 py-12 px-6 lg:px-14 bg-background">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center font-bold text-white text-xs">R</div>
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center font-bold text-white text-xs">R</div>
             <span className="font-semibold tracking-tight text-sm">ReasonsForALL Inc.</span>
           </div>
           <p className="text-sm text-muted-foreground">© 2026 ReasonsForALL Inc. All rights reserved.</p>

@@ -328,3 +328,101 @@ class GeminiService:
             
         stmt += " In our reasoning system, staff and buyers are disjoint classes, preventing transaction clashes."
         return stmt
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # Text-policy extraction & analysis (default reasoning mode)
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    def extract_text_policies_from_db_objects(self, triggers, functions, table_names):
+        """Synthesize plain-English business policies from SQL triggers and functions."""
+        if not self.api_key:
+            logger.warning("[PolicyExtract] No API key — using table-name fallback.")
+            return self._infer_policies_from_tables(table_names)
+        if not triggers and not functions:
+            return self._infer_policies_from_tables(table_names)
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
+        prompt = (
+            "You are a business analyst AI. Given SQL triggers and functions from a production database, "
+            "synthesize clear natural-language business rules that these objects enforce.\n"
+            "Focus on: access control, data integrity, workflow constraints, cascade effects.\n\n"
+            f"Tables: {json.dumps(table_names)}\n"
+            f"Triggers:\n{json.dumps(triggers, indent=2)}\n"
+            f"Functions:\n{json.dumps(functions, indent=2)}\n\n"
+            "Return a JSON array only (no markdown):\n"
+            "[{\"title\": \"<short name>\", \"body\": \"<1-3 sentence rule>\", \"source_type\": \"trigger|function|inferred\"}]"
+        )
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json"}}
+        import time as _time
+        for attempt in range(1, 4):
+            try:
+                r = httpx.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=35.0)
+                if r.status_code == 429:
+                    _time.sleep(5 * attempt); continue
+                r.raise_for_status()
+                policies = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+                logger.info(f"[PolicyExtract] Extracted {len(policies)} text policies.")
+                return policies if isinstance(policies, list) else []
+            except Exception as e:
+                logger.error(f"[PolicyExtract] Attempt {attempt}/3: {e}")
+                if attempt < 3: _time.sleep(2 ** attempt)
+        return self._infer_policies_from_tables(table_names)
+
+    def _infer_policies_from_tables(self, table_names):
+        """Lightweight fallback: infer generic policies from table names."""
+        policies, ns = [], {n.lower() for n in table_names}
+        if "user" in ns or "users" in ns:
+            policies.append({"title": "User Identity Integrity", "body": "Every action must be linked to a valid authenticated user. Anonymous users may not perform write operations.", "source_type": "inferred"})
+        if "order" in ns or "orders" in ns:
+            policies.append({"title": "Order Lifecycle Constraint", "body": "Orders must progress through approved status transitions only. Skipping states is prohibited.", "source_type": "inferred"})
+        if "rating" in ns or "ratings" in ns:
+            policies.append({"title": "Rating Eligibility", "body": "Only users who completed an order may submit a rating. Duplicate ratings for the same order are not permitted.", "source_type": "inferred"})
+        if "payment" in ns or "transaction" in ns or "payout" in ns:
+            policies.append({"title": "Payment Immutability", "body": "Completed payment records are immutable. Refunds must be separate reversal transactions.", "source_type": "inferred"})
+        if not policies:
+            policies.append({"title": "General Data Access Policy", "body": "All data operations must be authorized and scoped to the requesting tenant's data only.", "source_type": "inferred"})
+        return policies
+
+    def analyze_with_text_policies(self, user_query: str, policies: list, quads: list = None) -> dict:
+        """
+        Default reasoning mode: LLM-judge comparing user query against stored text policies.
+        Returns structured verdict with full analysis breakdown.
+        """
+        if not self.api_key:
+            return {"is_allowed": None, "confidence": 0.0, "verdict_label": "unknown", "summary": "API key not configured.", "violated_policies": [], "supporting_policies": [], "analysis_steps": [], "reasoning_mode": "text"}
+        if not policies:
+            return {"is_allowed": True, "confidence": 0.5, "verdict_label": "allowed", "summary": "No text policies stored yet. Run a schema resync to extract policies.", "violated_policies": [], "supporting_policies": [], "analysis_steps": ["No policies found — defaulting to allowed."], "reasoning_mode": "text"}
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
+        policies_block = "\n".join(f"[P{i+1}] {p['title']}: {p['body']}" for i, p in enumerate(policies))
+        entity_ctx = ""
+        if quads:
+            ents = list({q["subject"] for q in quads if q.get("type") == "ClassDefinition"})
+            entity_ctx = f"\nDatabase entities: {', '.join(ents[:20])}\n"
+
+        prompt = (
+            "You are a business policy compliance engine. Evaluate whether the user query is permitted.\n\n"
+            f"POLICIES:\n{policies_block}\n{entity_ctx}\n"
+            f"USER QUERY: \"{user_query}\"\n\n"
+            "Return ONLY this JSON (no markdown):\n"
+            "{\"is_allowed\": true|false|null, \"confidence\": 0.0-1.0, "
+            "\"verdict_label\": \"allowed|blocked|conditional|unclear\", "
+            "\"summary\": \"...\", \"violated_policies\": [], \"supporting_policies\": [], \"analysis_steps\": []}"
+        )
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json"}}
+        import time as _time
+        logger.info(f"[TextAnalysis] Checking query against {len(policies)} text policies...")
+        for attempt in range(1, 4):
+            try:
+                r = httpx.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=35.0)
+                if r.status_code == 429:
+                    _time.sleep(5 * attempt); continue
+                r.raise_for_status()
+                result = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+                result["reasoning_mode"] = "text"
+                logger.info(f"[TextAnalysis] Verdict: {result.get('verdict_label')} ({result.get('confidence')})")
+                return result
+            except Exception as e:
+                logger.error(f"[TextAnalysis] Attempt {attempt}/3: {e}")
+                if attempt < 3: _time.sleep(2 ** attempt)
+        return {"is_allowed": None, "confidence": 0.0, "verdict_label": "unclear", "summary": "Analysis failed after retries.", "violated_policies": [], "supporting_policies": [], "analysis_steps": [], "reasoning_mode": "text"}

@@ -179,3 +179,55 @@ def get_quads_for_server(tenant_id: str, server_config_id: int) -> list:
     response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
     response.raise_for_status()
     return response.json()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Text-policy store  (tenant_text_policies — plain-English business rules)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def save_text_policies(tenant_id: str, server_config_id: int, policies: list) -> None:
+    """
+    Persist extracted text-based business policies for a server.
+    Deletes existing policies first, then inserts fresh ones.
+    """
+    del_url = f"{config.SUPABASE_URL}/rest/v1/tenant_text_policies"
+    del_params = {"tenant_id": f"eq.{tenant_id}", "server_config_id": f"eq.{server_config_id}"}
+    del_headers = _headers()
+    del_headers["Prefer"] = "return=minimal"
+    httpx.delete(del_url, params=del_params, headers=del_headers, timeout=10.0)
+
+    if not policies:
+        return
+
+    records = [
+        {
+            "tenant_id": tenant_id,
+            "server_config_id": server_config_id,
+            "title": p.get("title", "Untitled Policy"),
+            "body": p.get("body", ""),
+            "source_type": p.get("source_type", "inferred"),
+        }
+        for p in policies
+    ]
+    ins_url = f"{config.SUPABASE_URL}/rest/v1/tenant_text_policies"
+    ins_headers = _headers()
+    ins_headers["Prefer"] = "return=minimal"
+    httpx.post(ins_url, json=records, headers=ins_headers, timeout=15.0).raise_for_status()
+
+
+def get_text_policies_for_server(tenant_id: str, server_config_id: int) -> list:
+    """Fetch all text-based business policies for a specific server."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_text_policies"
+    params = {
+        "tenant_id": f"eq.{tenant_id}",
+        "server_config_id": f"eq.{server_config_id}",
+        "order": "id.asc",
+    }
+    try:
+        response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        # Table may not exist yet on older deployments — return empty list gracefully
+        return []
+

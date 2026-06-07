@@ -98,11 +98,50 @@ class DBExtractor:
                 rules = rules[:rule_cap]
                 
             self.logger.warning(f"DBExtractor: Completed Multi-Agent rule mapping. Mapped rules: {len(rules)}")
+
+            # ── Text-policy extraction from DB triggers & functions ──
+            text_policies = []
+            try:
+                table_names = [t["name"] for t in schema_metadata["tables"]]
+                triggers, functions = [], []
+                with engine.connect() as conn:
+                    # PostgreSQL: read triggers
+                    try:
+                        trig_rows = conn.execute(
+                            __import__("sqlalchemy").text(
+                                "SELECT trigger_name, event_manipulation, event_object_table, action_statement "
+                                "FROM information_schema.triggers WHERE trigger_schema='public' LIMIT 30"
+                            )
+                        ).fetchall()
+                        triggers = [{"name": r[0], "event": r[1], "table": r[2], "body": r[3][:500]} for r in trig_rows]
+                    except Exception:
+                        pass
+                    # PostgreSQL: read functions / procedures
+                    try:
+                        func_rows = conn.execute(
+                            __import__("sqlalchemy").text(
+                                "SELECT routine_name, routine_type, routine_definition "
+                                "FROM information_schema.routines "
+                                "WHERE routine_schema='public' AND routine_type IN ('FUNCTION','PROCEDURE') LIMIT 20"
+                            )
+                        ).fetchall()
+                        functions = [{"name": r[0], "type": r[1], "body": (r[2] or "")[:500]} for r in func_rows]
+                    except Exception:
+                        pass
+
+                from app.services.gemini_service import GeminiService
+                gemini_svc = GeminiService()
+                text_policies = gemini_svc.extract_text_policies_from_db_objects(triggers, functions, table_names)
+                self.logger.warning(f"DBExtractor: Synthesized {len(text_policies)} text-based business policies.")
+            except Exception as policy_err:
+                self.logger.warning(f"DBExtractor: Text-policy extraction skipped: {policy_err}")
+
             return {
                 "status": "success",
                 "rules_extracted": len(rules),
                 "rules": rules,
-                "example_statement": example_statement
+                "example_statement": example_statement,
+                "text_policies": text_policies,
             }
         except SQLAlchemyError as e:
             self.logger.error(f"DBExtractor: Failed to extract schema: {str(e)}")

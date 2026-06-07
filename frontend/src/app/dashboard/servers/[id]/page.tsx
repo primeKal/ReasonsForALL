@@ -23,6 +23,8 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const [chatMessages, setChatMessages] = useState<any[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
+  const [reasoningMode, setReasoningMode] = useState<'text' | 'logical'>('text')
+  const [expandedAnalysis, setExpandedAnalysis] = useState<Record<number, boolean>>({})
   const supabase = createClient()
   const router = useRouter()
 
@@ -31,8 +33,8 @@ export default function ServerDetailsPage({ params }: { params: any }) {
       setChatMessages([
         {
           sender: 'assistant',
-          text: `Hello! I am your AI Reasoning Assistant. I have successfully compiled the ontological schema for **${server.name}**.\n\nYou can query my description-logic rules or input transactional state statements to test your guardrail policies in real time.`,
-          example: server.example_statement || "A Waiter is a subclass of Employee. Waiters are disjoint from Buyers."
+          text: `Hello! I am your AI Reasoning Assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default) — I will compare your queries against extracted business policies.\n\nSwitch to **Logical Reasoning (Beta)** for formal description-logic inference using owlready2.`,
+          example: server.example_statement || ''
         }
       ])
     }
@@ -57,7 +59,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify({ message: userText, reasoning_mode: reasoningMode })
       })
 
       if (!res.ok) throw new Error('Reasoning request failed')
@@ -69,7 +71,9 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           sender: 'assistant',
           text: data.explanation || 'No explanation returned.',
           isValid: data.is_valid,
-          violations: data.violations || []
+          violations: data.violations || [],
+          analysis: data.analysis || null,
+          reasoning_mode: data.reasoning_mode || reasoningMode,
         }
       ])
     } catch (err: any) {
@@ -218,16 +222,47 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                 </Card>
               </div>
 
-              {/* Logical Query Chat Interface */}
+              {/* Policy Chat Interface */}
               <Card className="border-primary/20 shadow-lg relative overflow-hidden bg-card">
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-indigo-500"></div>
                 <CardHeader className="pb-3 border-b border-border/40">
-                  <CardTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
-                    <span>💬</span> Logical Policy Chat & AI Verification Agent
-                  </CardTitle>
-                  <CardDescription>
-                    Input transactional records or logical guardrail expressions to evaluate satisfiability against your ontology firewall.
-                  </CardDescription>
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+                        <span>💬</span> Policy Reasoning Assistant
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        {reasoningMode === 'text'
+                          ? 'Text Policy Mode — queries are evaluated against extracted business policies using LLM analysis.'
+                          : 'Logical Reasoning Mode (Beta) — formal description-logic inference using owlready2 & HermiT.'}
+                      </CardDescription>
+                    </div>
+                    {/* Reasoning Mode Toggle */}
+                    <div className="flex items-center gap-1.5 bg-muted/60 border border-border/50 rounded-xl p-1 flex-shrink-0">
+                      <button
+                        id="mode-toggle-text"
+                        onClick={() => setReasoningMode('text')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          reasoningMode === 'text'
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        📋 Text Policies
+                      </button>
+                      <button
+                        id="mode-toggle-logical"
+                        onClick={() => setReasoningMode('logical')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                          reasoningMode === 'logical'
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        🧪 Logical <span className="text-[10px] opacity-80">Beta</span>
+                      </button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-4">
                   <div className="h-[380px] overflow-y-auto rounded-xl border border-border/50 bg-muted/10 p-4 space-y-4 flex flex-col justify-between">
@@ -256,24 +291,95 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                               </div>
                             )}
 
-                            {/* Status validation badge for assistant replies */}
+                            {/* Status validation badge + Analysis tab for assistant replies */}
                             {msg.sender === 'assistant' && msg.isValid !== undefined && (
                               <div className="mt-2 flex flex-col gap-2 pt-2 border-t border-border/40">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-xs font-semibold text-muted-foreground">Status:</span>
                                   <span className={`px-2 py-0.5 rounded text-xs font-bold ${msg.isValid ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                    {msg.isValid ? '✓ Consistent & Allowed' : '✗ Logical Clash Detected'}
+                                    {msg.isValid ? '✓ Permitted' : '✗ Blocked'}
                                   </span>
+                                  {msg.analysis?.confidence !== undefined && (
+                                    <span className="px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                                      Confidence: {Math.round(msg.analysis.confidence * 100)}%
+                                    </span>
+                                  )}
+                                  {msg.reasoning_mode && (
+                                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                      msg.reasoning_mode === 'logical'
+                                        ? 'bg-violet-500/10 text-violet-400'
+                                        : 'bg-blue-500/10 text-blue-400'
+                                    }`}>
+                                      {msg.reasoning_mode === 'logical' ? '🧪 Logical' : '📋 Text'}
+                                    </span>
+                                  )}
                                 </div>
+
+                                {/* Violations */}
                                 {msg.violations && msg.violations.length > 0 && (
                                   <div className="p-3 bg-red-500/5 rounded-lg border border-red-500/20 text-xs text-red-400 space-y-1">
-                                    <span className="font-bold block">Violations:</span>
+                                    <span className="font-bold block">❌ Violated Policies:</span>
                                     {msg.violations.map((v: string, i: number) => (
-                                      <div key={i} className="flex gap-1.5 items-start">
-                                        <span>•</span>
-                                        <span>{v}</span>
-                                      </div>
+                                      <div key={i} className="flex gap-1.5 items-start"><span>•</span><span>{v}</span></div>
                                     ))}
+                                  </div>
+                                )}
+
+                                {/* Analysis accordion */}
+                                {msg.analysis && (
+                                  <div className="mt-1">
+                                    <button
+                                      onClick={() => setExpandedAnalysis(prev => ({ ...prev, [index]: !prev[index] }))}
+                                      className="flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline"
+                                    >
+                                      {expandedAnalysis[index] ? '▾' : '▸'} Analysis
+                                      {msg.analysis.policies_checked ? ` (${msg.analysis.policies_checked} policies checked)` : ''}
+                                    </button>
+                                    {expandedAnalysis[index] && (
+                                      <div className="mt-2 rounded-lg border border-border/50 bg-muted/30 p-3 space-y-3 text-xs">
+                                        {/* Summary */}
+                                        {msg.analysis.summary && (
+                                          <p className="text-muted-foreground italic">{msg.analysis.summary}</p>
+                                        )}
+                                        {/* Supporting policies */}
+                                        {msg.analysis.supporting_policies?.length > 0 && (
+                                          <div>
+                                            <span className="font-semibold text-green-500 block mb-1">✅ Supporting Policies:</span>
+                                            {msg.analysis.supporting_policies.map((p: string, i: number) => (
+                                              <div key={i} className="flex gap-1.5"><span>•</span><span>{p}</span></div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {/* Violated policies */}
+                                        {msg.analysis.violated_policies?.length > 0 && (
+                                          <div>
+                                            <span className="font-semibold text-red-400 block mb-1">❌ Violated Policies:</span>
+                                            {msg.analysis.violated_policies.map((p: string, i: number) => (
+                                              <div key={i} className="flex gap-1.5"><span>•</span><span>{p}</span></div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {/* Reasoning steps */}
+                                        {msg.analysis.analysis_steps?.length > 0 && (
+                                          <div>
+                                            <span className="font-semibold text-foreground block mb-1">🔍 Reasoning Steps:</span>
+                                            {msg.analysis.analysis_steps.map((s: string, i: number) => (
+                                              <div key={i} className="flex gap-1.5 text-muted-foreground">
+                                                <span className="text-primary font-bold flex-shrink-0">{i+1}.</span>
+                                                <span>{s}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {/* DL specifics for logical mode */}
+                                        {msg.analysis.generated_dl_statement && (
+                                          <div>
+                                            <span className="font-semibold text-violet-400 block mb-1">DL Formula:</span>
+                                            <code className="bg-muted px-2 py-1 rounded text-violet-300">{msg.analysis.generated_dl_statement}</code>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -299,12 +405,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     <Input
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Enter a logical statement to evaluate..."
+                      placeholder={reasoningMode === 'text' ? 'Ask a policy question (e.g. can a user create a rating?)' : 'Enter a logical statement (e.g. can a Waiter place an order?)'}
                       disabled={chatLoading}
                       className="flex-1 bg-card border-border/60 text-sm h-11"
                     />
                     <Button type="submit" disabled={chatLoading || !chatInput.trim()} className="text-white h-11 px-5 shadow-md">
-                      Evaluate Query
+                      {reasoningMode === 'text' ? 'Check Policy' : 'Evaluate Logic'}
                     </Button>
                   </form>
                 </CardContent>

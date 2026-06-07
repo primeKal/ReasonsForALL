@@ -177,21 +177,24 @@ def generate_api_key(server_id: str):
 
 class ChatMessageRequest(BaseModel):
     message: str
+    reasoning_mode: str = "text"  # "text" (default) | "logical" (beta)
 
 @router.post("/{server_id}/chat")
 def server_chat(server_id: str, request: ChatMessageRequest):
     """
-    Evaluates a user-submitted logical statement against the active server's quads.
-    Uses Gemini strictly as an NLU semantic parser to extract the intent and parameters,
-    then executes description logic reasoning locally using owlready2.
+    Evaluates a user message using either:
+    - 'text' mode (default): LLM judges query against stored text-based business policies.
+    - 'logical' mode (beta): Formal Description Logic reasoning via owlready2.
+    Returns is_valid, explanation, violations, and a structured analysis breakdown.
     """
     import json
     server = _get_or_hydrate_server(server_id)
+    mode = (request.reasoning_mode or "text").lower()
 
-    logger.info("--- [REASONING CHAT TRANSITION START] ---")
-    logger.info(f"[Step 1: Input Received] User Message: '{request.message}'")
+    logger.info(f"--- [CHAT START | mode={mode}] ---")
+    logger.info(f"[Step 1] User message: '{request.message}'")
 
-    # 1. Gather all rules / quads from Supabase directly to ensure latest ontology rules are used
+    # ── Fetch quads (needed by both modes for context) ──────────────────────
     try:
         db_quads = supabase_client.get_quads_for_server(server["tenant_id"], server["server_config_id"])
         quads = [
@@ -207,67 +210,123 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             for q in db_quads
         ]
         server["rules"] = quads
-        logger.info(f"[Step 2: Schema Context] Fetched {len(quads)} fresh quads from Supabase for server '{server_id}'")
-        type_counts = {}
-        for q in quads:
-            t = q.get("type", "Unknown")
-            type_counts[t] = type_counts.get(t, 0) + 1
-        for rule_type, count in type_counts.items():
-            logger.info(f"  - {rule_type}: {count} quad(s)")
+        logger.info(f"[Step 2] Fetched {len(quads)} schema quads from Supabase.")
     except Exception as e:
-        logger.warning(f"[Step 2: Schema Context] Failed to fetch fresh quads from Supabase, using cached: {e}")
-        quads = server["rules"]
-        logger.info(f"[Step 2: Schema Context] Using {len(quads)} cached quads")
+        logger.warning(f"[Step 2] Failed to fetch quads: {e}. Using cached.")
+        quads = server.get("rules", [])
 
-    # 2. Call Gemini Service to parse the logical statement
     from app.services.gemini_service import GeminiService
     gemini_svc = GeminiService()
-    
-    logger.info("[Step 3: NLU Parsing] Sending user message to Gemini NLU parser...")
-    parsed_ai = gemini_svc.ask_logical_statement(
-        statement=request.message,
-        quads=quads
-    )
-    
-    agent_intent = "other"
+
+    # ════════════════════════════════════════════════════════════════════════
+    # TEXT MODE (default) — LLM policy comparison
+    # ════════════════════════════════════════════════════════════════════════
+    if mode == "text":
+        logger.info("[Step 3] Mode: TEXT — fetching stored text policies...")
+        try:
+            raw_policies = supabase_client.get_text_policies_for_server(
+                server["tenant_id"], server["server_config_id"]
+            )
+            policies = [{"title": p["title"], "body": p["body"], "source_type": p.get("source_type", "inferred")} for p in raw_policies]
+        except Exception as e:
+            logger.warning(f"[Step 3] Failed to fetch text policies: {e}. Using empty list.")
+            policies = []
+
+        logger.info(f"[Step 3] Loaded {len(policies)} text policies. Calling LLM judge...")
+        result = gemini_svc.analyze_with_text_policies(
+            user_query=request.message,
+            policies=policies,
+            quads=quads,
+        )
+
+        is_allowed = result.get("is_allowed")
+        verdict = result.get("verdict_label", "unclear")
+        confidence = result.get("confidence", 0.0)
+        summary = result.get("summary", "")
+        violated = result.get("violated_policies", [])
+        supporting = result.get("supporting_policies", [])
+        steps = result.get("analysis_steps", [])
+
+        logger.info(f"[Step 4] Text verdict: {verdict} | confidence: {confidence}")
+
+        # Verdict → is_valid mapping
+        is_valid = (is_allowed is True) or (verdict in ("allowed", "conditional"))
+
+        violated_text = ""
+        if violated:
+            violated_text = "\n**Violated Policies:**\n" + "\n".join(f"- ❌ {v}" for v in violated) + "\n"
+        supporting_text = ""
+        if supporting:
+            supporting_text = "\n**Supporting Policies:**\n" + "\n".join(f"- ✅ {v}" for v in supporting) + "\n"
+        steps_text = ""
+        if steps:
+            steps_text = "\n**Analysis Steps:**\n" + "\n".join(f"{i+1}. {s}" for i, s in enumerate(steps)) + "\n"
+        policies_text = ""
+        if policies:
+            policies_text = "\n**Active Business Policies Checked:** " + str(len(policies)) + "\n"
+
+        verdict_emoji = {"allowed": "✅", "blocked": "🚫", "conditional": "⚠️", "unclear": "❓"}.get(verdict, "❓")
+        confidence_pct = f"{int(confidence * 100)}%"
+
+        explanation = (
+            f"{verdict_emoji} **Text Policy Analysis — {verdict.upper()}** (Confidence: {confidence_pct})\n\n"
+            f"### 💬 1. User Query\n> \"{request.message}\"\n\n"
+            f"### 📋 2. Policy Evaluation\n"
+            f"*{summary}*\n"
+            f"{violated_text}"
+            f"{supporting_text}"
+            f"{policies_text}\n"
+            f"### 🔍 3. Reasoning Steps\n"
+            f"{steps_text}\n"
+            f"### 🎯 4. Verdict\n"
+            f"**{verdict.upper()}** — {'Action is permitted under active policies.' if is_valid else 'Action is blocked or restricted by active policies.'}"
+        )
+
+        return {
+            "is_valid": is_valid,
+            "explanation": explanation,
+            "violations": [f"{v}" for v in violated],
+            "reasoning_mode": "text",
+            "analysis": {
+                "mode": "text",
+                "verdict_label": verdict,
+                "confidence": confidence,
+                "summary": summary,
+                "violated_policies": violated,
+                "supporting_policies": supporting,
+                "analysis_steps": steps,
+                "policies_checked": len(policies),
+            }
+        }
+
+    # ════════════════════════════════════════════════════════════════════════
+    # LOGICAL MODE (beta) — owlready2 Description Logic reasoning
+    # ════════════════════════════════════════════════════════════════════════
+    logger.info("[Step 3] Mode: LOGICAL (beta) — NLU parsing with Gemini...")
+    parsed_ai = gemini_svc.ask_logical_statement(statement=request.message, quads=quads)
+
     payload = parsed_ai.get("payload", {})
-    extracted_logic_summary = parsed_ai.get("extracted_logic_summary", "Semantic extraction completed.")
+    extracted_logic_summary = parsed_ai.get("extracted_logic_summary", "Extraction completed.")
     logical_assertions = parsed_ai.get("logical_assertions", [])
 
-    logger.info("[Step 4: NLU Result]")
-    logger.info(f"  - Subject class: '{payload.get('subject_class', '(none)') if isinstance(payload, dict) else '(none)'}'")
-    logger.info(f"  - Logical assertions: {logical_assertions}")
-    logger.info(f"  - Logic summary: '{extracted_logic_summary}'")
-    if isinstance(payload, dict) and "expression_tree" in payload:
-        logger.info(f"  - Expression tree: {json.dumps(payload['expression_tree'])}")
-    else:
-        # NLU failed to produce a parseable expression — do NOT pass silently as valid
+    logger.info(f"[Step 4] NLU: subject='{payload.get('subject_class') if isinstance(payload, dict) else '?'}', assertions={logical_assertions}")
+
+    if not (isinstance(payload, dict) and "expression_tree" in payload):
         nlu_ok = parsed_ai.get("nlu_ok", True)
         if not nlu_ok or not payload:
-            logger.error("[Step 4: NLU FAILURE] No expression_tree extracted. Aborting reasoning — cannot default to valid.")
             return {
                 "is_valid": False,
-                "explanation": (
-                    f"⚠️ **NLU Parsing Failed — Reasoning Aborted**\n\n"
-                    f"The AI parser could not extract a structured logical statement from your input.\n"
-                    f"**Reason**: {extracted_logic_summary}\n\n"
-                    f"Please try again in a moment, or rephrase your query."
-                ),
-                "violations": ["NLU parsing unavailable: no expression tree could be extracted from the input."]
+                "explanation": f"⚠️ **NLU Parsing Failed**\n\nThe AI parser could not extract a structured logical statement.\n**Reason**: {extracted_logic_summary}",
+                "violations": ["NLU parsing unavailable."],
+                "reasoning_mode": "logical",
+                "analysis": {"mode": "logical", "error": "NLU parsing failed", "summary": extracted_logic_summary}
             }
 
-    # 3. Instantiate local OntologyEngine and execute formal owlready2 reasoning
     from app.services.ontology_engine import OntologyEngine
     engine = OntologyEngine(tenant_id=server["tenant_id"])
-    
-    logger.info("[Step 5: owlready2 Hydration & Evaluation] Initializing OntologyEngine and executing validation...")
-    validation_result = engine.validate_payload(
-        agent_intent=agent_intent,
-        payload_data=payload,
-        quads=quads
-    )
-    
-    # 4. Log and assemble the full verdict
+    logger.info("[Step 5] Running owlready2 DL reasoning...")
+    validation_result = engine.validate_payload(agent_intent="other", payload_data=payload, quads=quads)
+
     is_valid = validation_result["is_valid"]
     violations = validation_result["violations"]
     inference_time = validation_result.get("inference_time_ms", 0.0)
@@ -275,61 +334,40 @@ def server_chat(server_id: str, request: ChatMessageRequest):
     tbox_list = validation_result.get("connecting_tbox", [])
     transitions_list = validation_result.get("owl_inference_transitions", [])
 
-    logger.info("[Step 6: Reasoning Verdict]")
-    logger.info(f"  - Satisfiability: {'✓ Consistent & Satisfiable' if is_valid else '✗ Contradictory / Unsatisfiable'}")
-    logger.info(f"  - DL Formula: '{generated_dl}'")
-    logger.info(f"  - Inference time: {inference_time}ms")
-    if tbox_list:
-        logger.info(f"  - TBox axioms rehydrated ({len(tbox_list)}):")
-        for axiom in tbox_list:
-            logger.info(f"      {axiom}")
-    if violations:
-        logger.info(f"  - Violations ({len(violations)}):")
-        for v in violations:
-            logger.info(f"      {v}")
-    if transitions_list:
-        logger.info(f"  - OWL inference transitions ({len(transitions_list)}):")
-        for step in transitions_list:
-            logger.info(f"      {step}")
-    logger.info("--- [REASONING CHAT TRANSITION END] ---")
+    logger.info(f"[Step 6] DL Verdict: {'SATISFIABLE' if is_valid else 'UNSATISFIABLE'} in {inference_time}ms")
 
-    tbox_text = ""
-    if tbox_list:
-        tbox_text = "\n**Loaded TBox Axioms (Schema Rules)**:\n" + "\n".join(f"- `{t}`" for t in tbox_list) + "\n"
-
-    transitions_text = ""
-    if transitions_list:
-        transitions_text = "\n**OWL Inference & Transition Trace**:\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(transitions_list)) + "\n"
-
-    assertions_text = ""
-    if logical_assertions:
-        assertions_text = "\n**Extracted Logical Assertions**:\n" + "\n".join(f"- `{a}`" for a in logical_assertions) + "\n"
-    
-    dl_statement_block = ""
-    if generated_dl:
-        dl_statement_block = f"\n**Final Evaluated Description Logic Formula**:\n> `{generated_dl}`\n"
+    tbox_text = ("\n**Loaded TBox Axioms:**\n" + "\n".join(f"- `{t}`" for t in tbox_list) + "\n") if tbox_list else ""
+    transitions_text = ("\n**OWL Inference Trace:**\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(transitions_list)) + "\n") if transitions_list else ""
+    assertions_text = ("\n**Extracted Logical Assertions:**\n" + "\n".join(f"- `{a}`" for a in logical_assertions) + "\n") if logical_assertions else ""
+    dl_block = f"\n**DL Formula:** `{generated_dl}`\n" if generated_dl else ""
 
     explanation = (
-        f"🧭 **Transition Trace: From Conversational Query to Logical Verdict**\n\n"
-        f"### 💬 1. Conversational Input\n"
-        f"User query text:\n> \"{request.message}\"\n\n"
-        f"### 📝 2. AI NLU Parser Translation\n"
-        f"Mapped conversational statement to variables: `{json.dumps(payload)}`.\n"
-        f"*{extracted_logic_summary}*\n"
-        f"{assertions_text}\n"
-        f"### ⚙️ 3. owlready2 Description Logic Hydration & Solver\n"
-        f"- Dynamic Class restrictions bound from active schema rules.\n"
-        f"- Subclass and disjointness relations rehydrated in-memory.\n"
-        f"- Executed Pellet/HermiT DL satisfiability analysis in **{inference_time}ms**.\n"
-        f"{dl_statement_block}\n"
-        f"{tbox_text}\n"
-        f"{transitions_text}\n"
-        f"### 🎯 4. Final Verdict\n"
-        f"Status: {'✓ Consistent & Allowed - No logical clashes detected.' if is_valid else '✗ Contradictory & Blocked - Logical rule violation.'}"
+        f"🧭 **Logical Reasoning (Beta) — {'SATISFIABLE ✅' if is_valid else 'UNSATISFIABLE 🚫'}**\n\n"
+        f"### 💬 1. User Query\n> \"{request.message}\"\n\n"
+        f"### 📝 2. NLU Translation\n*{extracted_logic_summary}*\n{assertions_text}\n"
+        f"### ⚙️ 3. owlready2 DL Reasoning\n- Inference time: **{inference_time}ms**\n{dl_block}\n{tbox_text}\n{transitions_text}\n"
+        f"### 🎯 4. Verdict\n{'✓ Consistent & Allowed.' if is_valid else '✗ Contradictory & Blocked.'}"
     )
 
     return {
         "is_valid": is_valid,
         "explanation": explanation,
         "violations": violations,
+        "reasoning_mode": "logical",
+        "analysis": {
+            "mode": "logical",
+            "verdict_label": "allowed" if is_valid else "blocked",
+            "confidence": 1.0,
+            "summary": extracted_logic_summary,
+            "generated_dl_statement": generated_dl,
+            "tbox_axioms": tbox_list,
+            "inference_transitions": transitions_list,
+            "logical_assertions": logical_assertions,
+            "inference_time_ms": inference_time,
+            "violated_policies": [v for v in violations],
+            "supporting_policies": [],
+            "analysis_steps": transitions_list,
+            "policies_checked": len(quads),
+        }
     }
+

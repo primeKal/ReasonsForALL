@@ -92,14 +92,29 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
         except Exception as e:
             logger.error(f"Failed to persist quad rules: {e}")
 
+    # ── 5. Persist text-based business policies to tenant_text_policies ──
+    text_policies = result.get("text_policies", [])
+    if server_config_id and text_policies:
+        try:
+            supabase_client.save_text_policies(
+                tenant_id=tenant_id,
+                server_config_id=server_config_id,
+                policies=text_policies,
+            )
+            logger.info(f"Saved {len(text_policies)} text policies for server {server_config_id}")
+        except Exception as e:
+            logger.error(f"Failed to persist text policies: {e}")
+
     return {
         "status": result["status"],
         "server_id": server_key,
         "server_name": request.server_name,
         "rules_extracted": len(rules),
+        "text_policies_extracted": len(text_policies),
         "example_statement": example_statement,
-        "message": result.get("message", "Extraction and ontological enrichment successful.")
+        "message": result.get("message", "Extraction and enrichment successful.")
     }
+
 
 
 @router.get("/servers")
