@@ -21,8 +21,8 @@ class VerifyPayloadRequest(BaseModel):
 @router.post("/verify")
 def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends(verify_api_key)):
     """
-    Validates real-time transactional record instances using structured logical JSON.
-    Retrieves the server's rules from Supabase and runs Description Logic verification.
+    Validates real-time transactional record instances against stored rules.
+    Retrieves the server's rules from Supabase and runs verification.
     """
     tenant_id = server_context.get("tenant_id")
     if not tenant_id:

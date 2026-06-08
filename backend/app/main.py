@@ -12,8 +12,8 @@ logging.basicConfig(
 )
 
 app = FastAPI(
-    title="Multi-Tenant Ontology Guardrail SaaS",
-    description="Advanced semantic logic and inference verification layer",
+    title="Multi-Tenant Guardrail SaaS",
+    description="Advanced rules verification and enforcement API",
     version="1.0.0.1"
 )
 
@@ -40,4 +40,4 @@ app.include_router(billing.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Multi-Tenant Ontology Guardrail SaaS API"}
+    return {"message": "Welcome to the Multi-Tenant Guardrail API"}

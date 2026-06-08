@@ -329,7 +329,7 @@ def server_chat(server_id: str, request: ChatMessageRequest):
     """
     Evaluates a user message using either:
     - 'text' mode (default): LLM judges query against stored text-based business policies.
-    - 'logical' mode (beta): Formal Description Logic reasoning via owlready2.
+    - 'logical' mode (beta): formal verification against structured rules (beta).
     Returns is_valid, explanation, violations, and a structured analysis breakdown.
     """
     import json

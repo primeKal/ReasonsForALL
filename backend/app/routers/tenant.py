@@ -28,7 +28,7 @@ class ConnectionRequest(BaseModel):
 def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(verify_tenant)):
     """
     Connects to the provided database, extracts the schema,
-    runs the two-step AI ontological enrichment (identifying subsumes relations
+    runs the two-step AI enrichment (identifying class hierarchies
     and generating example logical rules), and saves everything to Supabase.
     """
     tenant_id = tenant_context.get("tenant_id")
@@ -51,7 +51,7 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
 
     if result["status"] == "simulated":
         logger.warning(
-            f"Database connection failed. Proceeding with simulated sandbox ontology: {result.get('message')}")
+            f"Database connection failed. Proceeding with simulated sandbox extraction: {result.get('message')}")
 
     # Derive dialect from the connection string scheme
     dialect = request.connection_string.split("://")[0].split("+")[0]
