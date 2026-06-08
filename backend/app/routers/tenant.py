@@ -89,6 +89,7 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
             dialect=dialect,
             rules_extracted=len(rules),
             example_statement=example_statement,
+            repo_url=request.repo_url,
         )
         server_config_id = row.get("id")
         ACTIVE_SERVERS[server_key]["server_config_id"] = server_config_id
@@ -162,6 +163,7 @@ def list_servers(tenant_context: dict = Depends(verify_tenant)):
                     "tenant_id": tenant_id,
                     "server_config_id": s["id"],
                     "example_statement": s.get("example_statement", ""),
+                    "repo_url": s.get("repo_url", ""),
                     "llm_provider": s.get("llm_provider", "gemini"),
                     "llm_api_key": s.get("llm_api_key", ""),
                 }

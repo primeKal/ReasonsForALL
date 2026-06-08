@@ -37,6 +37,7 @@ def insert_server_config(
     row_scan_depth: int = 500,
     status: str = "Connected",
     example_statement: str = None,
+    repo_url: str | None = None,
 ) -> dict:
     """
     Insert a new row in tenant_configurations for a connected server.
@@ -48,6 +49,7 @@ def insert_server_config(
         "server_key": server_key,
         "name": name,
         "dialect": dialect,
+        "repo_url": repo_url,
         "status": status,
         "rules_extracted": rules_extracted,
         "max_rules": max_rules,
@@ -71,7 +73,7 @@ def get_servers_for_tenant(tenant_id: str) -> list:
         "tenant_id": f"eq.{tenant_id}",
         "server_key": "not.is.null",       # exclude legacy blank rows
         "order": "created_at.desc",
-        "select": "id,tenant_id,server_key,name,dialect,status,rules_extracted,synced_at,max_rules,row_scan_depth,is_premium,trial_expires_at,example_statement,llm_provider,llm_api_key",
+        "select": "id,tenant_id,server_key,name,dialect,status,rules_extracted,synced_at,max_rules,row_scan_depth,is_premium,trial_expires_at,example_statement,repo_url,llm_provider,llm_api_key",
     }
     response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
     response.raise_for_status()
