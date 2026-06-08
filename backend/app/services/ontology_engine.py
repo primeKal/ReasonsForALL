@@ -356,48 +356,79 @@ class OntologyEngine:
                             subject_class = types.new_class(subject_class_name, (Thing,))
                             onto_classes[subject_class_name] = subject_class
                         
+                        # Use pure-Python OWL RL reasoning via rdflib + owlrl (no JVM required)
                         try:
                             # Dynamically resolve metaclasses to avoid Python metaclass conflict
                             TempQueryClass = types.new_class("TempQueryClass", (subject_class,))
                             TempQueryClass.equivalent_to = [logical_construct]
                             logger.info(f"[OntologyEngine] TempQueryClass ≡ {generated_dl_statement}")
-                            logger.info(f"[OntologyEngine] Running HermiT DL reasoner...")
-                            
-                            # Run HermiT or Pellet reasoner to infer satisfiability
+
+                            logger.info("[OntologyEngine] Running OWL RL closure (rdflib + owlrl) as the sole reasoner")
                             try:
-                                sync_reasoner_hermit(keep_tmp_file=False)
-                                logger.info("[OntologyEngine] HermiT completed.")
-                            except Exception as hermit_err:
-                                logger.warning(f"[OntologyEngine] HermiT failed ({hermit_err}), falling back to Pellet.")
-                                sync_reasoner()
-                                logger.info("[OntologyEngine] Pellet completed.")
-                            
-                            eq = TempQueryClass.equivalent_to
-                            logger.info(f"[OntologyEngine] TempQueryClass.equivalent_to after reasoning: {eq}")
-                            if Nothing in eq or issubclass(TempQueryClass, Nothing):
+                                from rdflib import Graph, URIRef
+                                from rdflib.namespace import OWL, RDFS
+                                from owlrl import DeductiveClosure, OWLRL_Semantics
+                            except Exception as imp_e:
+                                logger.error(f"[OntologyEngine] OWL RL libraries not available: {imp_e}")
                                 is_valid = False
-                                logger.info("[OntologyEngine] ✗ Verdict: UNSATISFIABLE (Nothing) — logical contradiction detected.")
                                 violations.append(
-                                    f"Logical Inference Violation: The state '{generated_dl_statement}' is inconsistent. "
-                                    f"An instance of '{subject_class_name}' cannot satisfy this logical query because "
-                                    f"active database schema constraints require at least one relation to exist."
+                                    "Logical Inference Failed: OWL RL libraries not installed. Install `rdflib` and `owlrl`."
                                 )
                             else:
-                                logger.info("[OntologyEngine] ✓ Verdict: SATISFIABLE — no contradiction found.")
-                        except Exception as re:
-                            logger.error(f"[OntologyEngine] DL Reasoner execution failed: {re}")
+                                import tempfile, os
+                                try:
+                                    # Try to obtain an rdflib graph directly from owlready2 world
+                                    try:
+                                        rdfg = onto.world.as_rdflib_graph()
+                                        tf_name = None
+                                    except Exception:
+                                        # Fallback: dump ontology to a temporary RDF/XML file
+                                        tf = tempfile.NamedTemporaryFile(delete=False, suffix=".owl")
+                                        tf.close()
+                                        onto.save(file=tf.name, format="rdfxml")
+                                        rdfg = Graph()
+                                        rdfg.parse(tf.name)
+                                        tf_name = tf.name
+
+                                    # Run OWL RL closure (pure-Python)
+                                    DeductiveClosure(OWLRL_Semantics).expand(rdfg)
+
+                                    # Check for unsatisfiable TempQueryClass by IRI
+                                    temp_iri = getattr(TempQueryClass, 'iri', None)
+                                    unsat = False
+                                    if temp_iri:
+                                        tref = URIRef(temp_iri)
+                                        if (tref, OWL.equivalentClass, OWL.Nothing) in rdfg:
+                                            unsat = True
+                                        if (tref, RDFS.subClassOf, OWL.Nothing) in rdfg:
+                                            unsat = True
+
+                                    if unsat:
+                                        is_valid = False
+                                        logger.info("[OntologyEngine] ✗ Verdict (OWL RL): UNSATISFIABLE — logical contradiction detected.")
+                                        violations.append(
+                                            "Logical Inference Violation (OWL RL): The query is inconsistent according to OWL RL closure."
+                                        )
+                                    else:
+                                        logger.info("[OntologyEngine] ✓ Verdict (OWL RL): SATISFIABLE — no contradiction found.")
+
+                                except Exception as fallback_err:
+                                    logger.error(f"[OntologyEngine] OWL RL processing failed: {fallback_err}")
+                                    is_valid = False
+                                    violations.append(
+                                        f"Logical Inference Failed: OWL RL processing error: {fallback_err}"
+                                    )
+                                finally:
+                                    # Cleanup temp file if created
+                                    try:
+                                        if 'tf_name' in locals() and tf_name:
+                                            os.unlink(tf_name)
+                                    except Exception:
+                                        pass
+                        except Exception as e:
+                            logger.error(f"[OntologyEngine] Unexpected error preparing OWL RL check: {e}")
                             is_valid = False
-                            # Detect missing Java executable which is a common cause when
-                            # owlready2 tries to run HermiT/Pellet via JVM.
-                            if isinstance(re, FileNotFoundError) or "No such file or directory" in str(re):
-                                violations.append(
-                                    "Logical Inference Failed: Java runtime not found on the host (java executable missing). "
-                                    "Install a JRE/JDK (e.g. OpenJDK) and ensure `java` is on PATH, or disable DL reasoning in configuration."
-                                )
-                            else:
-                                violations.append(
-                                    f"Logical Inference Failed: Reasoner error: {re}. Please check active ontology rules."
-                                )
+                            violations.append(f"Logical Inference Failed: {e}")
                     
         # Extract connecting TBox rules
         connecting_tbox = []

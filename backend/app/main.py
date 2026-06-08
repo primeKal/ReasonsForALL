@@ -51,41 +51,40 @@ async def _preflight(path_name: str, request: Request):
         "http://127.0.0.1:3000",
         *_extra_origins,
     ]
-      logging.info(
-          f"CORS preflight received for path=/{path_name} origin={origin} allowed_origins={allowed}")
+    logging.info(f"CORS preflight received for path=/{path_name} origin={origin} allowed_origins={allowed}")
 
-       # If an origin is present and not allowed, return 204 with no CORS headers
-       if origin and origin not in allowed and "*" not in allowed:
-            logging.warning(f"CORS preflight origin not allowed: {origin}")
-            return Response(status_code=204)
+    # If an origin is present and not allowed, return 204 with no CORS headers
+    if origin and origin not in allowed and "*" not in allowed:
+        logging.warning(f"CORS preflight origin not allowed: {origin}")
+        return Response(status_code=204)
 
-        allow_headers = request.headers.get(
-            "access-control-request-headers", "Authorization,Content-Type"
-        )
+    allow_headers = request.headers.get(
+        "access-control-request-headers", "Authorization,Content-Type"
+    )
 
-        # When credentials are used, browsers require a specific origin value
-        # (not '*'). Always echo the incoming origin when present and allowed.
-        if origin:
-            acao = origin
-        else:
-            # No Origin header (non-browser request) — fall back to wildcard if allowed
-            acao = "*" if "*" in allowed else (allowed[0] if allowed else "*")
+    # When credentials are used, browsers require a specific origin value
+    # (not '*'). Always echo the incoming origin when present and allowed.
+    if origin:
+        acao = origin
+    else:
+        # No Origin header (non-browser request) — fall back to wildcard if allowed
+        acao = "*" if "*" in allowed else (allowed[0] if allowed else "*")
 
-        headers = {
-            "Access-Control-Allow-Origin": acao,
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-            "Access-Control-Allow-Headers": allow_headers,
-            "Access-Control-Allow-Credentials": "true",
-        }
-        logging.info(f"CORS preflight responding with headers: {headers}")
-        return Response(status_code=204, headers=headers)
+    headers = {
+        "Access-Control-Allow-Origin": acao,
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": allow_headers,
+        "Access-Control-Allow-Credentials": "true",
+    }
+    logging.info(f"CORS preflight responding with headers: {headers}")
+    return Response(status_code=204, headers=headers)
 
 
 @app.get("/ping")
 def ping():
     """Simple diagnostic endpoint to verify CORS and reachability."""
-      # Removed unnecessary origin echoing logic for simplicity
-      return JSONResponse({"status": "ok"})
+    # Removed unnecessary origin echoing logic for simplicity
+    return JSONResponse({"status": "ok"})
 
 
 app.include_router(tenant.router)
