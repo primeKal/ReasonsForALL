@@ -4,6 +4,7 @@ from app.routers import tenant, reasoning, server, billing
 import logging
 import os
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 
 # Configure root logger so all app-level INFO/WARNING logs appear in the terminal
 logging.basicConfig(
@@ -40,6 +41,8 @@ app.add_middleware(
 # which invalidates browser preflight requests). This returns minimal
 # Access-Control-Allow-* headers for allowed origins so browsers accept
 # the preflight and continue to the real route.
+
+
 @app.options("/{path_name:path}")
 async def _preflight(path_name: str, request: Request):
     origin = request.headers.get("origin")
@@ -48,8 +51,10 @@ async def _preflight(path_name: str, request: Request):
         "http://127.0.0.1:3000",
         *_extra_origins,
     ]
+    logging.info(f"CORS preflight received for path=/{path_name} origin={origin} allowed_origins={allowed}")
     # If an origin is present and not allowed, return 204 with no CORS headers
     if origin and origin not in allowed and "*" not in allowed:
+        logging.warning(f"CORS preflight origin not allowed: {origin}")
         return Response(status_code=204)
 
     allow_headers = request.headers.get(
@@ -61,7 +66,14 @@ async def _preflight(path_name: str, request: Request):
         "Access-Control-Allow-Headers": allow_headers,
         "Access-Control-Allow-Credentials": "true",
     }
+    logging.info(f"CORS preflight responding with headers: {headers}")
     return Response(status_code=204, headers=headers)
+
+
+@app.get("/ping")
+def ping():
+    """Simple diagnostic endpoint to verify CORS and reachability."""
+    return JSONResponse({"status": "ok"})
 
 app.include_router(tenant.router)
 app.include_router(reasoning.router)
