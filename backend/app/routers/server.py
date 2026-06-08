@@ -393,7 +393,7 @@ def server_chat(server_id: str, request: ChatMessageRequest):
     logger.info(f"[Step 6] DL Verdict: {'SATISFIABLE' if is_valid else 'UNSATISFIABLE'} in {inference_time}ms")
 
     tbox_text = ("\n**Loaded TBox Axioms:**\n" + "\n".join(f"- `{t}`" for t in tbox_list) + "\n") if tbox_list else ""
-    transitions_text = ("\n**OWL Inference Trace:**\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(transitions_list)) + "\n") if transitions_list else ""
+    transitions_text = ("\n**Ralles Inference Trace:**\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(transitions_list)) + "\n") if transitions_list else ""
     assertions_text = ("\n**Extracted Logical Assertions:**\n" + "\n".join(f"- `{a}`" for a in logical_assertions) + "\n") if logical_assertions else ""
     dl_block = f"\n**DL Formula:** `{generated_dl}`\n" if generated_dl else ""
 
@@ -401,7 +401,7 @@ def server_chat(server_id: str, request: ChatMessageRequest):
         f"🧭 **Logical Reasoning (Beta) — {'SATISFIABLE ✅' if is_valid else 'UNSATISFIABLE 🚫'}**\n\n"
         f"### 💬 1. User Query\n> \"{request.message}\"\n\n"
         f"### 📝 2. NLU Translation\n*{extracted_logic_summary}*\n{assertions_text}\n"
-        f"### ⚙️ 3. owlready2 DL Reasoning\n- Inference time: **{inference_time}ms**\n{dl_block}\n{tbox_text}\n{transitions_text}\n"
+        f"### ⚙️ 3. Ralles DL Inference Engine\n- Inference time: **{inference_time}ms**\n{dl_block}\n{tbox_text}\n{transitions_text}\n"
         f"### 🎯 4. Verdict\n{'✓ Consistent & Allowed.' if is_valid else '✗ Contradictory & Blocked.'}"
     )
 

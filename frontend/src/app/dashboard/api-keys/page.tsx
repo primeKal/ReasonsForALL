@@ -67,7 +67,7 @@ export default function ApiKeysPage() {
         </p>
         <pre className="p-4 rounded-lg bg-black text-white overflow-x-auto text-sm border border-border/50">
           <code>
-            {`curl -X POST https://api.reasonsforall.com/v1/reasoning/verify \\
+            {`curl -X POST https://api.ralles.com/v1/reasoning/verify \\
   -H "Authorization: Bearer sk-live-..." \\
   -H "Content-Type: application/json" \\
   -d '{"agent_intent": "create_user", "payload": {"email": "test@example.com"}}'`}

@@ -1,172 +1,360 @@
+'use client'
+
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { motion } from "framer-motion";
 
 export default function LandingPage() {
+  const [activeTab, setActiveTab] = useState<'text' | 'logical'>('text');
+  
+  // Interactive mock queries for the live playground
+  const mockQueries = {
+    text: [
+      {
+        query: "Can an anonymous user delete a rating from the database?",
+        verdict: "BLOCKED",
+        isValid: false,
+        latency: "4.2ms",
+        reason: "Violates: User Identity Integrity. Anonymous users are strictly prohibited from performing write or delete operations on system records."
+      },
+      {
+        query: "Can a customer submit a rating for an order they completed?",
+        verdict: "PERMITTED",
+        isValid: true,
+        latency: "3.5ms",
+        reason: "Complies with: Rating Eligibility. Users who completed an order are authorized to submit a single rating."
+      },
+      {
+        query: "Can an unauthenticated guest user place a new order?",
+        verdict: "BLOCKED",
+        isValid: false,
+        latency: "3.8ms",
+        reason: "Violates: User Identity Integrity. Guest accounts must associate with a verified profile before checkout is permitted."
+      }
+    ],
+    logical: [
+      {
+        query: "Waiter subClassOf Employee; Waiter placing transaction",
+        verdict: "PERMITTED",
+        isValid: true,
+        latency: "1.9ms",
+        reason: "Consistent axiom. Employee is authorized to place transactions, and Waiter is a valid subclass of Employee."
+      },
+      {
+        query: "Waiter disjointWith Buyer; Waiter placing Buyer transaction",
+        verdict: "BLOCKED",
+        isValid: false,
+        latency: "2.1ms",
+        reason: "Inconsistent assertion. Waiters are logically disjoint from Buyers, preventing them from performing buyer-exclusive transactions."
+      }
+    ]
+  };
+
+  const [selectedDemoIndex, setSelectedDemoIndex] = useState(0);
+  const currentDemo = mockQueries[activeTab][selectedDemoIndex] || mockQueries[activeTab][0];
+
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground selection:bg-primary/30">
-      <header className="px-6 lg:px-14 h-20 flex items-center justify-between border-b border-border/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center font-bold text-white shadow-lg">R</div>
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">ReasonsForALL</span>
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 selection:bg-violet-500/30 selection:text-white">
+      {/* Background glow effects */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/10 blur-[150px] rounded-full -z-10 pointer-events-none"></div>
+      <div className="absolute top-[30vh] right-1/4 w-[600px] h-[600px] bg-indigo-600/10 blur-[180px] rounded-full -z-10 pointer-events-none"></div>
+      <div className="absolute bottom-10 left-1/3 w-[500px] h-[500px] bg-blue-600/10 blur-[150px] rounded-full -z-10 pointer-events-none"></div>
+
+      {/* Header */}
+      <header className="px-6 lg:px-14 h-20 flex items-center justify-between border-b border-white/5 backdrop-blur-md bg-slate-950/70 sticky top-0 z-50">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-extrabold text-white shadow-lg shadow-violet-500/20">
+            R
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xl font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-violet-400 bg-clip-text text-transparent">Ralles</span>
+            <span className="text-[9px] text-violet-400 font-bold uppercase tracking-widest -mt-1">Reasons for Alles</span>
+          </div>
         </div>
-        <nav className="hidden md:flex items-center gap-8 font-medium text-sm text-muted-foreground">
-          <Link href="#features" className="hover:text-primary transition-colors">Features</Link>
-          <Link href="#how-it-works" className="hover:text-primary transition-colors">How it Works</Link>
-          <Link href="#pricing" className="hover:text-primary transition-colors">Pricing</Link>
+        <nav className="hidden md:flex items-center gap-8 font-semibold text-sm text-slate-400">
+          <a href="#features" className="hover:text-violet-400 transition-colors">Features</a>
+          <a href="#playground" className="hover:text-violet-400 transition-colors">Interactive Demo</a>
+          <a href="#how-it-works" className="hover:text-violet-400 transition-colors">How it Works</a>
+          <a href="#pricing" className="hover:text-violet-400 transition-colors">Pricing</a>
         </nav>
         <nav className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium hover:text-primary transition-colors hidden sm:block">Sign In</Link>
+          <Link href="/login" className="text-sm font-semibold text-slate-400 hover:text-white transition-colors hidden sm:block">Sign In</Link>
           <Link href="/login">
-            <Button className="rounded-full px-6 shadow-md hover:shadow-lg transition-all text-white">Get Started</Button>
+            <Button className="rounded-xl px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-violet-500/10 border border-violet-500/30 hover:-translate-y-0.5 transition-all">Get Started</Button>
           </Link>
         </nav>
       </header>
       
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 text-center pt-32 pb-24 relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/20 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
-          <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary mb-8 backdrop-blur-sm">
-            <span>🚀 The Ultimate Logical Firewall</span>
+        <section className="flex flex-col items-center justify-center px-6 lg:px-8 text-center pt-28 pb-24 relative overflow-hidden">
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-4.5 py-1.5 text-xs font-bold text-violet-300 mb-8 backdrop-blur-sm shadow-inner">
+            <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-ping"></span>
+            <span>Ralles — Your Reasoning Assistant</span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight max-w-4xl mx-auto mb-8 text-balance">
-            Turn unpredictable agents into <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">deterministic</span> decision-makers.
+          
+          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight max-w-5xl mx-auto mb-8 text-white leading-[1.15]">
+            Deterministic Guardrails for <br className="hidden md:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">Autonomous AI Agents</span>
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-            ReasonsForALL intercepts AI agent intents and validates them against an explicit knowledge base extracted directly from your relational databases.
+          
+          <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
+            We use state-of-the-art multi-agent systems and neurosymbolic associations to provide accurate and hallucination-free reasoning and query guardrails. Ralles maps your database schemas to logic structures and intercepts agent intents to enforce zero-trust policies.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto sm:max-w-none">
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto sm:max-w-none mb-16">
             <Link href="/login">
-              <Button size="lg" className="rounded-full px-8 h-12 text-base shadow-xl hover:-translate-y-1 transition-all text-white w-full sm:w-auto">Start 30-Day Free Trial</Button>
+              <Button size="lg" className="rounded-xl px-8 h-12 text-base font-bold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-xl shadow-violet-500/20 border border-violet-500/30 hover:-translate-y-1 transition-all text-white w-full sm:w-auto">
+                Start Free Trial
+              </Button>
             </Link>
             <Link href="/dashboard/servers">
-              <Button size="lg" variant="outline" className="rounded-full px-8 h-12 text-base backdrop-blur-md bg-background/50 hover:bg-muted/50 transition-all border-primary/20 hover:border-primary/50 w-full sm:w-auto">Enter Dashboard</Button>
+              <Button size="lg" variant="outline" className="rounded-xl px-8 h-12 text-base font-bold backdrop-blur-md bg-white/5 hover:bg-white/10 transition-all border-white/10 hover:border-white/20 text-slate-200 w-full sm:w-auto">
+                Enter Dashboard
+              </Button>
             </Link>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section id="features" className="py-24 bg-muted/30 px-6 lg:px-14">
+        {/* Live Playground Section */}
+        <section id="playground" className="py-20 px-6 lg:px-14 border-y border-white/5 bg-slate-900/40 relative">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3 text-white">Live Guardrail Simulator</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-sm">Experience how Ralles inspects, verifies, and intercepts intents in sub-milliseconds.</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+              {/* Left Side: Select Query */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-violet-400 block mb-1">Select Reasoning Mode</span>
+                  <div className="flex gap-1.5 p-1 bg-slate-950 border border-white/5 rounded-xl">
+                    <button 
+                      onClick={() => { setActiveTab('text'); setSelectedDemoIndex(0); }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'text' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      📋 Text Policies
+                    </button>
+                    <button 
+                      onClick={() => { setActiveTab('logical'); setSelectedDemoIndex(0); }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'logical' ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
+                    >
+                      🧪 Logical reasoning
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 flex-1 pt-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Select Agent intent</span>
+                  <div className="space-y-2">
+                    {mockQueries[activeTab].map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedDemoIndex(idx)}
+                        className={`w-full p-4 rounded-xl text-left text-xs transition-all border ${selectedDemoIndex === idx ? 'bg-violet-500/10 border-violet-500/40 text-white' : 'bg-slate-950/60 border-white/5 text-slate-400 hover:border-white/10 hover:text-slate-200'}`}
+                      >
+                        <span className="font-semibold block mb-1">{activeTab === 'text' ? 'User Query:' : 'DL assertion:'}</span>
+                        <code className="block break-words italic">"{item.query}"</code>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side: Simulator Output Terminal */}
+              <div className="lg:col-span-7 flex flex-col">
+                <div className="flex-1 bg-slate-950 border border-white/10 rounded-2xl shadow-2xl relative overflow-hidden flex flex-col min-h-[350px]">
+                  {/* Terminal Header */}
+                  <div className="px-4 py-3 bg-slate-900 border-b border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
+                      <span className="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+                      <span className="w-3 h-3 rounded-full bg-green-500/80"></span>
+                      <span className="text-xs font-mono text-slate-400 ml-2">Ralles Engine Terminal v1.2</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-violet-400">LATENCY: {currentDemo.latency}</span>
+                  </div>
+
+                  {/* Terminal Body */}
+                  <div className="p-6 font-mono text-xs space-y-4 flex-1 overflow-y-auto">
+                    <div>
+                      <span className="text-slate-500 block mb-1">&gt; INCOMING INTENT VERIFICATION REQUEST:</span>
+                      <code className="text-violet-300 block bg-slate-900/60 p-3 rounded-lg border border-white/5 italic">
+                        "{currentDemo.query}"
+                      </code>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block mb-1">&gt; VERIFYING NEUROSYMBOLIC ASSOCIATION GRAPH:</span>
+                      <span className="text-cyan-400 block animate-pulse">● Connecting schema policies... done</span>
+                    </div>
+
+                    <div className="pt-2">
+                      <span className="text-slate-500 block mb-1">&gt; DECISION VERDICT:</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${currentDemo.isValid ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                          {currentDemo.verdict}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white/5 rounded-lg border border-white/5 text-slate-300 mt-2 leading-relaxed">
+                      <span className="font-bold text-slate-100 block mb-1">Reasoning steps:</span>
+                      {currentDemo.reason}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Feature Comparison Matrix */}
+        <section className="py-20 px-6 lg:px-14 max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-white">Compare Guardrail Architectures</h2>
+            <p className="text-slate-400 max-w-2xl mx-auto text-sm">Why modern AI architectures need neurosymbolic guardrails instead of probabilistic LLM filters.</p>
+          </div>
+
+          <div className="rounded-2xl border border-white/5 overflow-hidden shadow-xl overflow-x-auto bg-slate-900/20 backdrop-blur-md">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-950 border-b border-white/10 text-slate-300">
+                <tr>
+                  <th className="px-6 py-4">Capability</th>
+                  <th className="px-6 py-4 text-violet-400 bg-violet-500/5 font-extrabold border-x border-violet-500/15">🛡️ Ralles Engine</th>
+                  <th className="px-6 py-4">Standard LLM Filters</th>
+                  <th className="px-6 py-4">Standard Vector RAG</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-slate-400">
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 font-bold text-white">Determinism</td>
+                  <td className="px-6 py-4 font-bold text-green-400 bg-violet-500/5 border-x border-violet-500/15">100% Guaranteed</td>
+                  <td className="px-6 py-4">Probabilistic (85-92%)</td>
+                  <td className="px-6 py-4">Fuzzy Match Only</td>
+                </tr>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 font-bold text-white">Hallucination Risk</td>
+                  <td className="px-6 py-4 font-bold text-green-400 bg-violet-500/5 border-x border-violet-500/15">0% (Strict Logic Proof)</td>
+                  <td className="px-6 py-4">High (prone to jailbreaks)</td>
+                  <td className="px-6 py-4">High (context confusion)</td>
+                </tr>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 font-bold text-white">Evaluation Speed</td>
+                  <td className="px-6 py-4 font-bold text-white bg-violet-500/5 border-x border-violet-500/15">&lt; 5ms in-memory</td>
+                  <td className="px-6 py-4 text-red-400">Slow (800ms - 2500ms)</td>
+                  <td className="px-6 py-4">Medium (200ms - 500ms)</td>
+                </tr>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 font-bold text-white">Schema Verification</td>
+                  <td className="px-6 py-4 text-green-400 bg-violet-500/5 border-x border-violet-500/15">Deep structural mapping</td>
+                  <td className="px-6 py-4">Implicit inference only</td>
+                  <td className="px-6 py-4">None</td>
+                </tr>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 font-bold text-white">Security / Privacy</td>
+                  <td className="px-6 py-4 text-green-400 bg-violet-500/5 border-x border-violet-500/15">Stateless (No rows cached)</td>
+                  <td className="px-6 py-4">Exposes sensitive vectors</td>
+                  <td className="px-6 py-4">Requires document index copy</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Detailed Features Grid */}
+        <section id="features" className="py-20 bg-slate-900/20 px-6 lg:px-14 border-t border-white/5">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">The Logical Firewall for AI</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto text-lg">Prevent "hallu-relation" by ensuring your AI agents only generate valid queries according to your corporate schema rules.</p>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-white">The Ralles Tech Stack</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-base">Accurate guardrails built on multi-agent synthesis and neurosymbolic associations.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
-              <Card className="border-border/50 shadow-lg bg-background/60 backdrop-blur-sm">
+              <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center text-2xl mb-4">🛡️</div>
-                  <CardTitle>Zero Hallucinations</CardTitle>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🤖</div>
+                  <CardTitle className="text-white">Multi-Agent Schema Parser</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Catch impossible data requests before they hit your database. We validate subject-predicate relationships in sub-milliseconds.</p>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    Our cooperative multi-agent swarm inspects database blueprints (relations, constraints, triggers, functions) and synthesizes plain-English business policies automatically.
+                  </p>
                 </CardContent>
               </Card>
-              <Card className="border-border/50 shadow-lg bg-background/60 backdrop-blur-sm">
+
+              <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center text-2xl mb-4">⚡</div>
-                  <CardTitle>Stateless Quad-Store</CardTitle>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🧠</div>
+                  <CardTitle className="text-white">Neurosymbolic Engine</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Never cache raw records. Our hybrid semantic architecture extracts your schema blueprint and tests agent parameters in isolated memory.</p>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    Bridges natural-language user queries with explicit schema logic. Ensures zero semantic drift or hallucinated tables when AI agents interact with your systems.
+                  </p>
                 </CardContent>
               </Card>
-              <Card className="border-border/50 shadow-lg bg-background/60 backdrop-blur-sm">
+
+              <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-blue-500/10 flex items-center justify-center text-2xl mb-4">🔌</div>
-                  <CardTitle>Multi-Dialect Support</CardTitle>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🔒</div>
+                  <CardTitle className="text-white">Zero Trust Firewall</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Seamlessly hook into PostgreSQL, MySQL, and SQL Server with read-only extraction profiles that guarantee zero production mutations.</p>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    A stateless check running in under 5 milliseconds. Catches impossible joins, illegal status jumps, and privilege escalations before SQL gets generated.
+                  </p>
                 </CardContent>
               </Card>
             </div>
           </div>
         </section>
 
-        {/* How it Works Section */}
-        <section id="how-it-works" className="py-24 px-6 lg:px-14">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-bold mb-16 tracking-tight text-center">How it Works</h2>
-            <div className="space-y-12">
-              <div className="flex flex-col md:flex-row gap-8 items-center">
-                <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-500 text-white font-bold text-lg mb-2">1</div>
-                  <h3 className="text-2xl font-bold">Connect your Database</h3>
-                  <p className="text-muted-foreground">Provide a read-only string. We automatically inspect your relational tables and foreign keys without caching any row data.</p>
-                </div>
-                <div className="flex-1 bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl p-6 border border-primary/10 aspect-video flex items-center justify-center shadow-inner">
-                  <div className="text-4xl">🔗 ➜ 🗄️</div>
-                </div>
-              </div>
-              <div className="flex flex-col md:flex-row-reverse gap-8 items-center">
-                <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-500 text-white font-bold text-lg mb-2">2</div>
-                  <h3 className="text-2xl font-bold">Extract Semantic Rules</h3>
-                  <p className="text-muted-foreground">Our semantic engine translates relational constraints into formal logic triples, saved to a secure Quad-Store for fast inference.</p>
-                </div>
-                <div className="flex-1 bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl p-6 border border-primary/10 aspect-video flex items-center justify-center shadow-inner">
-                  <div className="text-4xl">🗄️ ➜ 🧠</div>
-                </div>
-              </div>
-              <div className="flex flex-col md:flex-row gap-8 items-center">
-                <div className="flex-1 space-y-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-primary to-blue-500 text-white font-bold text-lg mb-2">3</div>
-                  <h3 className="text-2xl font-bold">Real-Time Validation</h3>
-                  <p className="text-muted-foreground">Send agent payloads to our API. We re-hydrate the rule graph in application memory, run description logic checks, and respond in &lt; 5ms.</p>
-                </div>
-                <div className="flex-1 bg-gradient-to-br from-primary/5 to-blue-500/5 rounded-2xl p-6 border border-primary/10 aspect-video flex items-center justify-center shadow-inner">
-                  <div className="text-4xl">🤖 ➜ ✅</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        
         {/* Pricing Section */}
-        <section id="pricing" className="py-24 bg-muted/30 px-6 lg:px-14 border-t border-border/50">
+        <section id="pricing" className="py-20 bg-slate-950/40 px-6 lg:px-14 border-t border-white/5">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight">Simple, predictable pricing</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto text-lg">Start building your logical firewall today.</p>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-white">Simple, predictable pricing</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-base">Secure your autonomous agent operations today.</p>
             </div>
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              <Card className="border-border/50 shadow-md bg-background">
+              <Card className="border-white/5 shadow-md bg-slate-950/50 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="text-2xl">Developer Trial</CardTitle>
+                  <CardTitle className="text-2xl text-white">Developer Trial</CardTitle>
                   <CardDescription>Perfect for proof-of-concepts and exploration.</CardDescription>
-                  <div className="mt-4 text-4xl font-bold">$0<span className="text-lg text-muted-foreground font-normal"> / 30 days</span></div>
+                  <div className="mt-4 text-4xl font-black text-white">$0<span className="text-lg text-slate-400 font-normal"> / 30 days</span></div>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3 text-muted-foreground">
+                  <ul className="space-y-3 text-slate-400 text-xs">
                     <li className="flex items-center gap-2"><span>✓</span> PostgreSQL, MySQL, SQL Server</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Up to 5 Active Structural Rules</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Manual Schema Refresh</li>
-                    <li className="flex items-center gap-2"><span>✓</span> 500 Row Scan Depth limit</li>
+                    <li className="flex items-center gap-2"><span>✓</span> Full API Logger Access</li>
+                    <li className="flex items-center gap-2"><span>✓</span> Up to 1000 Mapped Rules</li>
+                    <li className="flex items-center gap-2"><span>✓</span> Single-tenant memory isolation</li>
                   </ul>
                 </CardContent>
               </Card>
-              <Card className="border-primary/50 shadow-xl bg-background relative overflow-hidden">
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-blue-400 to-indigo-500"></div>
+
+              <Card className="border-violet-500/40 shadow-2xl bg-slate-950/60 backdrop-blur-sm relative overflow-hidden">
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500"></div>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-2xl text-primary">Enterprise Premium</CardTitle>
-                      <CardDescription>For production AI deployments.</CardDescription>
+                      <CardTitle className="text-2xl text-violet-400">Enterprise Premium</CardTitle>
+                      <CardDescription>For production AI agent swarms.</CardDescription>
                     </div>
-                    <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">RECOMMENDED</span>
+                    <span className="bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">RECOMMENDED</span>
                   </div>
-                  <div className="mt-4 text-4xl font-bold">Custom</div>
+                  <div className="mt-4 text-4xl font-black text-white">Custom</div>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3 text-muted-foreground">
+                  <ul className="space-y-3 text-slate-400 text-xs">
                     <li className="flex items-center gap-2"><span>✓</span> Custom Connection Drivers</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Uncapped Expression Fields</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Automated Webhook Syncing</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Hard Mode Description Logic</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Virtual Fetch Lookups</li>
+                    <li className="flex items-center gap-2"><span>✓</span> Uncapped Rule Count Mappings</li>
+                    <li className="flex items-center gap-2"><span>✓</span> Real-Time Webhook Schema Sync</li>
+                    <li className="flex items-center gap-2"><span>✓</span> High-Availability API clusters</li>
                   </ul>
                 </CardContent>
               </Card>
@@ -175,13 +363,13 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border/50 py-12 px-6 lg:px-14 bg-background">
+      <footer className="border-t border-white/5 py-12 px-6 lg:px-14 bg-slate-950">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center font-bold text-white text-xs">R</div>
-            <span className="font-semibold tracking-tight text-sm">ReasonsForALL Inc.</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-extrabold text-white text-xs">R</div>
+            <span className="font-bold tracking-tight text-sm text-slate-200">Ralles Inc.</span>
           </div>
-          <p className="text-sm text-muted-foreground">© 2026 ReasonsForALL Inc. All rights reserved.</p>
+          <p className="text-xs text-slate-500">© 2026 Ralles Inc. All rights reserved. Reasons for Alles.</p>
         </div>
       </footer>
     </div>

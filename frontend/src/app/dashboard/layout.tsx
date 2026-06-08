@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <header className="px-6 h-16 flex items-center justify-between border-b border-border/50 sticky top-0 z-40 bg-background/80 backdrop-blur-md">
         <Link href="/dashboard/servers" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center font-bold text-white shadow-md text-sm">R</div>
-          <span className="font-semibold tracking-tight hidden sm:inline-block">ReasonsForALL</span>
+          <span className="font-semibold tracking-tight hidden sm:inline-block">Ralles</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm font-medium">
           <Link href="/dashboard/servers" className="text-foreground/80 hover:text-primary transition-colors">Servers</Link>

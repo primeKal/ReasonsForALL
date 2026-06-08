@@ -15,7 +15,7 @@ export default function DocsPage() {
   }
 
   const codeBlocks = {
-    curl: `curl -X POST https://api.reasonsforall.com/v1/verify \\
+    curl: `curl -X POST https://api.ralles.com/v1/verify \\
   -H "Authorization: Bearer sk-rfa-..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -28,10 +28,10 @@ export default function DocsPage() {
   }'`,
     langchain: `from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from reasons_for_all import ReasonsGuardrail
+from ralles import RallesGuardrail
 
-# Initialize the ReasonsForALL logical guardrail
-guardrail = ReasonsGuardrail(
+# Initialize the Ralles logical guardrail
+guardrail = RallesGuardrail(
     server_id="srv_db_prod_9012",
     api_key="sk-rfa-..."
 )
@@ -56,7 +56,7 @@ else:
       <div>
         <h1 className="text-4xl font-extrabold tracking-tight">Documentation</h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Learn how to integrate ReasonsForALL logical guardrails and protect your databases from autonomous AI agent drift.
+          Learn how to integrate Ralles logical guardrails and protect your databases from autonomous AI agent drift.
         </p>
       </div>
 
@@ -76,11 +76,11 @@ else:
           <section id="introduction" className="space-y-4">
             <h2 className="text-2xl font-bold tracking-tight">Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              ReasonsForALL provides an intelligent reasoning firewall for autonomous AI agents that interact with structured databases. By converting your database schema and foreign key constraints into a semantic description logics (TBox) framework, ReasonsForALL allows you to enforce strict guardrail rules that prevent agents from performing unsafe joins, unauthorized data mutation, or exposing sensitive database objects.
+              Ralles provides an intelligent reasoning firewall for autonomous AI agents that interact with structured databases. By converting your database schema and foreign key constraints into a semantic description logics (TBox) framework, Ralles allows you to enforce strict guardrail rules that prevent agents from performing unsafe joins, unauthorized data mutation, or exposing sensitive database objects.
             </p>
             <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 text-sm leading-relaxed">
               <span className="font-bold text-primary mr-1">How it works:</span> 
-              When an AI agent generates a SQL query or intents to interact with a database, your application forwards the query to ReasonsForALL. Our logical inference engine runs reasoning over active database policies and evaluates whether the query complies with the semantic definitions of your schema.
+              When an AI agent generates a SQL query or intents to interact with a database, your application forwards the query to Ralles. Our logical inference engine runs reasoning over active database policies and evaluates whether the query complies with the semantic definitions of your schema.
             </div>
           </section>
 
@@ -89,13 +89,13 @@ else:
             <h2 className="text-2xl font-bold tracking-tight">Quickstart</h2>
             <ol className="space-y-4 list-decimal pl-5 text-muted-foreground leading-relaxed">
               <li>
-                <span className="font-semibold text-foreground">Connect your Database:</span> Go to the <a href="/dashboard/servers" className="text-primary hover:underline font-medium">Servers</a> tab, click "+ Connect Database", and enter a secure connection string. ReasonsForALL will instantly extract the schema and generate business entity definitions.
+                <span className="font-semibold text-foreground">Connect your Database:</span> Go to the <a href="/dashboard/servers" className="text-primary hover:underline font-medium">Servers</a> tab, click "+ Connect Database", and enter a secure connection string. Ralles will instantly extract the schema and generate business entity definitions.
               </li>
               <li>
                 <span className="font-semibold text-foreground">Generate an API Key:</span> Navigate inside your newly connected server's details page, go to the <span className="font-medium text-foreground">API & Docs</span> tab, and click "Generate New Key".
               </li>
               <li>
-                <span className="font-semibold text-foreground">Inject into your Code:</span> Use the endpoint <code className="bg-muted px-1 py-0.5 rounded text-primary">https://api.reasonsforall.com/v1/verify</code> to validate all SQL strings before executing them on your server.
+                <span className="font-semibold text-foreground">Inject into your Code:</span> Use the endpoint <code className="bg-muted px-1 py-0.5 rounded text-primary">https://api.ralles.com/v1/verify</code> to validate all SQL strings before executing them on your server.
               </li>
             </ol>
           </section>
@@ -147,7 +147,7 @@ else:
             <Card className="border-border/50 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg">Python / LangChain Integration</CardTitle>
-                <CardDescription>Integrate ReasonsForALL directly as a validation middleware in LangChain.</CardDescription>
+                <CardDescription>Integrate Ralles directly as a validation middleware in LangChain.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">

@@ -34,15 +34,20 @@ export default function ServerDetailsPage({ params }: { params: any }) {
 
   useEffect(() => {
     if (server) {
+      const isLogical = reasoningMode === 'logical'
       setChatMessages([
         {
           sender: 'assistant',
-          text: `Hello! I am your AI Reasoning Assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default) — I will compare your queries against extracted business policies.\n\nSwitch to **Logical Reasoning (Beta)** for formal description-logic inference using owlready2.`,
-          example: server.example_statement || ''
+          text: isLogical
+            ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal neurosymbolic description-logic inference on your assertions.\n\nType a logical statement below (e.g. classes, subclasses, or relations) to evaluate consistency.`
+            : `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default). I will compare your queries against natural-language business policies extracted from your database schema.\n\nAsk a policy query below.`,
+          example: isLogical
+            ? (server.example_statement || "Waiter subClassOf Employee")
+            : "Can an anonymous user delete a rating?"
         }
       ])
     }
-  }, [server])
+  }, [server, reasoningMode])
 
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -247,12 +252,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
-                        <span>💬</span> Policy Reasoning Assistant
+                        <span>💬</span> Ralles Reasoning Assistant
                       </CardTitle>
                       <CardDescription className="mt-1">
                         {reasoningMode === 'text'
-                          ? 'Text Policy Mode — queries are evaluated against extracted business policies using LLM analysis.'
-                          : 'Logical Reasoning Mode (Beta) — formal description-logic inference using owlready2 & HermiT.'}
+                          ? 'Text Policy Mode — queries are evaluated against extracted business policies using neurosymbolic analysis.'
+                          : 'Logical Reasoning Mode (Beta) — formal description-logic inference using Ralles reasoning engine.'}
                       </CardDescription>
                     </div>
                     {/* Reasoning Mode Toggle */}
@@ -553,7 +558,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                             <th className="px-4 py-3">Entity</th>
                             <th className="px-4 py-3">Relationship</th>
                             <th className="px-4 py-3">Target</th>
-                            <th className="px-4 py-3">OWL Quantifier</th>
+                            <th className="px-4 py-3">Quantifier</th>
                             <th className="px-4 py-3">Type</th>
                             <th className="px-4 py-3">Description Logic / Axiom</th>
                           </tr>
@@ -721,11 +726,11 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="space-y-2">
                     <Label className="font-semibold text-foreground">Server Endpoint</Label>
                     <div className="flex gap-2">
-                      <Input readOnly value="https://api.reasonsforall.com/v1/verify" className="font-mono text-sm bg-muted/50 border-border/60" />
+                      <Input readOnly value="https://api.ralles.com/v1/verify" className="font-mono text-sm bg-muted/50 border-border/60" />
                       <Button 
                         variant="secondary"
                         onClick={() => {
-                          navigator.clipboard.writeText("https://api.reasonsforall.com/v1/verify")
+                          navigator.clipboard.writeText("https://api.ralles.com/v1/verify")
                           setCopiedEndpoint(true)
                           setTimeout(() => setCopiedEndpoint(false), 2000)
                         }}
@@ -791,7 +796,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       width="100%" 
                       height="100%" 
                       src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
-                      title="ReasonsForALL Integration Demo" 
+                      title="Ralles Integration Demo" 
                       frameBorder="0" 
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                       allowFullScreen
@@ -800,7 +805,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Endpoint URL</h3>
-                    <div className="bg-muted p-3 rounded-md font-mono text-sm text-primary">POST https://api.reasonsforall.com/v1/verify</div>
+                    <div className="bg-muted p-3 rounded-md font-mono text-sm text-primary">POST https://api.ralles.com/v1/verify</div>
                   </div>
 
                   <div>
