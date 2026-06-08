@@ -395,80 +395,14 @@ class GeminiService:
         if not policies:
             policies.append({"title": "General Data Access Policy", "body": "All data operations must be authorized and scoped to the requesting tenant's data only.", "source_type": "inferred"})
         return policies
-
-    def _local_fallback_policy_evaluation(self, user_query: str, policies: list) -> dict:
-        """
-        Local fallback when Gemini API hits rate limits (429) or is otherwise unavailable.
-        Uses keyword overlap and permission phrase checking to evaluate if any policy is violated or supporting.
-        """
-        logger.info("[TextAnalysis] Falling back to local keyword-based policy evaluation due to Gemini API rate limits/errors.")
-        
-        user_query_lower = user_query.lower()
-        violated_policies = []
-        supporting_policies = []
-        
-        # Simple heuristics for permissions
-        is_blocked_sentiment = any(w in user_query_lower for w in ["delete", "drop", "destroy", "bypass", "anonymous", "skip", "remove", "cancel"])
-        
-        # We want to match keyword subjects and verbs in policies
-        keywords = ["user", "employee", "waiter", "rating", "order", "payment", "transaction", "refund", "buyer", "customer", "admin"]
-        matched_query_keywords = [k for k in keywords if k in user_query_lower]
-        
-        for p in policies:
-            title_lower = p["title"].lower()
-            body_lower = p["body"].lower()
-            
-            # Check if this policy matches any of the query keywords
-            policy_has_matching_keyword = any(k in title_lower or k in body_lower for k in matched_query_keywords)
-            
-            if policy_has_matching_keyword or not matched_query_keywords:
-                # Determine if the policy restricts something that the user is trying to do
-                body_restricts = any(r in body_lower for r in ["prohibited", "must not", "cannot", "only", "not permitted", "restricted", "requires"])
-                
-                # Check for anonymous user constraints
-                if "anonymous" in user_query_lower and ("anonymous" in body_lower or "unauthenticated" in body_lower):
-                    violated_policies.append(f"{p['title']}: (Violated anonymous user restriction)")
-                # Check for general restriction matching
-                elif is_blocked_sentiment and body_restricts:
-                    violated_policies.append(f"{p['title']}: (Restricted action match)")
-                else:
-                    supporting_policies.append(f"{p['title']}")
-                    
-        # Filter duplicates
-        violated_policies = list(set(violated_policies))
-        supporting_policies = list(set(supporting_policies))
-        
-        if violated_policies:
-            verdict_label = "blocked"
-            is_allowed = False
-            summary = "Local policy evaluation detected a constraint match violating system policies."
-        else:
-            verdict_label = "allowed"
-            is_allowed = True
-            summary = "Local policy evaluation did not find matching policy violations for this query."
-            
-        return {
-            "is_allowed": is_allowed,
-            "confidence": 0.75,
-            "verdict_label": verdict_label,
-            "summary": f"⚠️ [Local Policy Fallback (Rate Limited)] {summary}",
-            "violated_policies": violated_policies,
-            "supporting_policies": supporting_policies,
-            "analysis_steps": [
-                "Gemini API rate-limited (429). Commenced local heuristic analysis.",
-                f"Identified query keywords: {matched_query_keywords}",
-                f"Evaluated {len(policies)} active natural language policy guidelines."
-            ],
-            "reasoning_mode": "text"
-        }
-
     def analyze_with_text_policies(self, user_query: str, policies: list, quads: list = None) -> dict:
         """
         Default reasoning mode: LLM-judge comparing user query against stored text policies.
         Returns structured verdict with full analysis breakdown.
         """
+        from fastapi import HTTPException
         if not self.api_key:
-            return {"is_allowed": None, "confidence": 0.0, "verdict_label": "unknown", "summary": "API key not configured.", "violated_policies": [], "supporting_policies": [], "analysis_steps": [], "reasoning_mode": "text"}
+            raise HTTPException(status_code=500, detail="Gemini API key not configured on the server.")
         if not policies:
             return {"is_allowed": True, "confidence": 0.5, "verdict_label": "allowed", "summary": "No text policies stored yet. Run a schema resync to extract policies.", "violated_policies": [], "supporting_policies": [], "analysis_steps": ["No policies found — defaulting to allowed."], "reasoning_mode": "text"}
 
@@ -491,11 +425,18 @@ class GeminiService:
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json"}}
         import time as _time
         logger.info(f"[TextAnalysis] Checking query against {len(policies)} text policies...")
+        
+        last_error_status = None
+        last_error_message = ""
+        
         for attempt in range(1, 4):
             try:
                 r = httpx.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=35.0)
                 if r.status_code == 429:
-                    _time.sleep(2 * attempt); continue
+                    last_error_status = 429
+                    last_error_message = "Gemini API rate limit exceeded (429). Please wait a moment before trying again."
+                    _time.sleep(2 * attempt)
+                    continue
                 r.raise_for_status()
                 result = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
                 result["reasoning_mode"] = "text"
@@ -503,5 +444,10 @@ class GeminiService:
                 return result
             except Exception as e:
                 logger.error(f"[TextAnalysis] Attempt {attempt}/3: {e}")
+                last_error_message = str(e)
                 if attempt < 3: _time.sleep(2 ** attempt)
-        return self._local_fallback_policy_evaluation(user_query, policies)
+                
+        if last_error_status == 429:
+            raise HTTPException(status_code=429, detail=last_error_message)
+        else:
+            raise HTTPException(status_code=500, detail=f"Gemini API request failed: {last_error_message}")

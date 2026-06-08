@@ -19,6 +19,8 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const [textPolicies, setTextPolicies] = useState<any[]>([])
   const [rulesSubTab, setRulesSubTab] = useState<'logical' | 'text'>('text')
   const [apiKeys, setApiKeys] = useState<any[]>([])
+  const [apiLogs, setApiLogs] = useState<any[]>([])
+  const [expandedLogs, setExpandedLogs] = useState<Record<number, boolean>>({})
   const [copiedEndpoint, setCopiedEndpoint] = useState(false)
   const [revealedKeys, setRevealedKeys] = useState<Record<string, boolean>>({})
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null)
@@ -64,7 +66,10 @@ export default function ServerDetailsPage({ params }: { params: any }) {
         body: JSON.stringify({ message: userText, reasoning_mode: reasoningMode })
       })
 
-      if (!res.ok) throw new Error('Reasoning request failed')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Reasoning request failed')
+      }
       const data = await res.json()
       
       setChatMessages((prev) => [
@@ -84,7 +89,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
         ...prev,
         {
           sender: 'assistant',
-          text: '❌ Connection error: Could not reach the reasoning engine API.',
+          text: `❌ Error: ${err.message || 'Could not reach the reasoning engine API.'}`,
           isValid: false,
           violations: []
         }
@@ -135,11 +140,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
       const baseUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}`
       
       try {
-        const [serverRes, conceptsRes, rulesRes, policiesRes, keysRes] = await Promise.all([
+        const [serverRes, conceptsRes, rulesRes, policiesRes, logsRes, keysRes] = await Promise.all([
           fetch(baseUrl, { headers }),
           fetch(`${baseUrl}/concepts`, { headers }),
           fetch(`${baseUrl}/rules`, { headers }),
           fetch(`${baseUrl}/text_policies`, { headers }),
+          fetch(`${baseUrl}/api_logs`, { headers }),
           fetch(`${baseUrl}/api_keys`, { headers })
         ])
 
@@ -155,6 +161,10 @@ export default function ServerDetailsPage({ params }: { params: any }) {
         if (policiesRes.ok) {
            const data = await policiesRes.json()
            setTextPolicies(data.policies || [])
+        }
+        if (logsRes.ok) {
+           const data = await logsRes.json()
+           setApiLogs(data.logs || [])
         }
         if (keysRes.ok) {
            setApiKeys(await keysRes.json())
@@ -172,6 +182,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
     { id: 'overview', label: 'Overview' },
     { id: 'concepts', label: 'Business Entities' },
     { id: 'rules', label: 'Guardrail Rules' },
+    { id: 'api_logs', label: 'API Logs' },
     { id: 'api', label: 'API & Docs' },
     { id: 'config', label: 'Configuration' }
   ]
@@ -588,6 +599,112 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       </div>
                     )}
                   </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'api_logs' && (
+            <Card className="border-border/50 shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/40">
+                <div>
+                  <CardTitle>API Verification Logs</CardTitle>
+                  <CardDescription>Real-time audit trail of all /verify API requests evaluated by this server.</CardDescription>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={async () => {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (session) {
+                      const headers = { 'Authorization': `Bearer ${session.access_token}` }
+                      const logsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}/api_logs`, { headers })
+                      if (logsRes.ok) {
+                        const data = await logsRes.json()
+                        setApiLogs(data.logs || [])
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-1.5"
+                >
+                  🔄 Refresh Logs
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {apiLogs.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground border border-dashed border-border/45 rounded-xl bg-muted/5">
+                    No verification API calls recorded yet.
+                    <br />
+                    <span className="text-xs text-muted-foreground/80 mt-1 block">
+                      Tip: Deploy agent keys and call POST /reasoning/verify to see real-time guardrail logs.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {apiLogs.map((log, idx) => (
+                      <div 
+                        key={log.id || idx}
+                        className="rounded-xl border border-border/50 bg-card overflow-hidden transition-all shadow-sm hover:shadow-md"
+                      >
+                        {/* Summary Header Row */}
+                        <div className="p-4 flex items-center justify-between gap-4 flex-wrap bg-muted/10 border-b border-border/30">
+                          <div className="flex items-center gap-3">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${log.is_valid ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                              {log.is_valid ? '✓ PASS' : '✗ BLOCKED'}
+                            </span>
+                            <span className="font-mono text-sm font-semibold bg-muted px-2 py-0.5 rounded text-foreground">
+                              {log.agent_intent}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>⏱️ {log.inference_time_ms.toFixed(1)}ms</span>
+                            <span>📅 {new Date(log.created_at).toLocaleString()}</span>
+                            <button
+                              onClick={() => setExpandedLogs(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                              className="text-primary font-bold hover:underline flex items-center gap-1 ml-2"
+                            >
+                              {expandedLogs[idx] ? 'Hide Analysis ▾' : 'View Analysis ▸'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Collapsible Detail Panel */}
+                        {expandedLogs[idx] && (
+                          <div className="p-5 bg-card space-y-4 text-sm border-t border-border/30 animate-fadeIn">
+                            {/* Violations */}
+                            {!log.is_valid && log.violations && log.violations.length > 0 && (
+                              <div className="p-3 bg-red-500/5 rounded-lg border border-red-500/20 text-xs text-red-400 space-y-1">
+                                <span className="font-bold block">❌ Violated Constraints:</span>
+                                {log.violations.map((v: string, i: number) => (
+                                  <div key={i} className="flex gap-1.5 items-start"><span>•</span><span>{v}</span></div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Request Payload */}
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-bold text-muted-foreground block">📥 Input Payload:</span>
+                              <pre className="bg-zinc-950 text-zinc-50 p-4 rounded-lg font-mono text-xs overflow-x-auto border border-border/40">
+                                {JSON.stringify(log.payload, null, 2)}
+                              </pre>
+                            </div>
+
+                            {/* Verification verdict */}
+                            <div className="p-3.5 rounded-lg border border-border/40 bg-muted/30 text-xs space-y-1">
+                              <span className="font-bold text-foreground block">🔍 Decision Inference:</span>
+                              <p className="text-muted-foreground">
+                                {log.is_valid 
+                                  ? 'The reasoning engine successfully verified this request payload. No disjointness barriers or policy contradictions were encountered.'
+                                  : `This payload violated logical guardrail rules. Prohibited concepts: ${log.violations.join(', ')}.`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>

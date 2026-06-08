@@ -231,3 +231,53 @@ def get_text_policies_for_server(tenant_id: str, server_config_id: int) -> list:
         # Table may not exist yet on older deployments — return empty list gracefully
         return []
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API Verification Logs (tenant_api_logs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def save_api_log(
+    tenant_id: str,
+    server_config_id: int,
+    agent_intent: str,
+    payload: dict,
+    is_valid: bool,
+    violations: list,
+    inference_time_ms: float,
+) -> None:
+    """Save an API verification request details for auditing and analytics."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_api_logs"
+    record = {
+        "tenant_id": tenant_id,
+        "server_config_id": server_config_id,
+        "agent_intent": agent_intent,
+        "payload": payload,
+        "is_valid": is_valid,
+        "violations": violations,
+        "inference_time_ms": inference_time_ms,
+    }
+    try:
+        headers = _headers()
+        headers["Prefer"] = "return=minimal"
+        httpx.post(url, json=record, headers=headers, timeout=10.0).raise_for_status()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to save API log: {e}")
+
+
+def get_api_logs_for_server(tenant_id: str, server_config_id: int) -> list:
+    """Fetch all verification API logs for a specific server."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_api_logs"
+    params = {
+        "tenant_id": f"eq.{tenant_id}",
+        "server_config_id": f"eq.{server_config_id}",
+        "order": "created_at.desc",
+        "limit": 100,  # limit to last 100 logs
+    }
+    try:
+        response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return []
+

@@ -62,6 +62,20 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
         quads=quads
     )
     
+    # Save verification API audit log to Supabase
+    try:
+        supabase_client.save_api_log(
+            tenant_id=db_server["tenant_id"],
+            server_config_id=db_server["id"],
+            agent_intent=request.agent_intent,
+            payload=request.payload,
+            is_valid=validation_result["is_valid"],
+            violations=validation_result["violations"],
+            inference_time_ms=validation_result.get("inference_time_ms", 0.0),
+        )
+    except Exception as log_err:
+        logger.warning(f"Failed to log verify API request: {log_err}")
+    
     return {
         "agent_intent": request.agent_intent,
         "is_valid": validation_result["is_valid"],

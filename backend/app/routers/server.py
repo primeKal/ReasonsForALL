@@ -172,6 +172,35 @@ def get_server_text_policies(server_id: str):
         logger.error(f"Failed to fetch text policies for server {server_id}: {e}")
         return {"server_id": server_id, "policies": []}
 
+@router.get("/{server_id}/api_logs")
+def get_server_api_logs(server_id: str):
+    """
+    Returns the audit logs of all verify API requests processed by this server.
+    """
+    server = _get_or_hydrate_server(server_id)
+    try:
+        logs = supabase_client.get_api_logs_for_server(
+            server["tenant_id"], server["server_config_id"]
+        )
+        return {
+            "server_id": server_id,
+            "logs": [
+                {
+                    "id": log.get("id"),
+                    "agent_intent": log.get("agent_intent"),
+                    "payload": log.get("payload"),
+                    "is_valid": log.get("is_valid"),
+                    "violations": log.get("violations", []),
+                    "inference_time_ms": float(log.get("inference_time_ms", 0.0)),
+                    "created_at": log.get("created_at")
+                }
+                for log in logs
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch API logs for server {server_id}: {e}")
+        return {"server_id": server_id, "logs": []}
+
 @router.get("/{server_id}/api_keys", response_model=List[APIKeyResponse])
 def list_api_keys(server_id: str):
     """
