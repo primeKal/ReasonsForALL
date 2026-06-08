@@ -6,6 +6,7 @@ from owlready2 import *
 
 logger = logging.getLogger(__name__)
 
+
 class OntologyEngine:
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
@@ -15,9 +16,11 @@ class OntologyEngine:
         Dynamically constructs an in-memory ontology using owlready2 
         from the TBox concepts and rules quads.
         """
-        onto = get_ontology(f"http://reasonsforall.com/tenant_{self.tenant_id}.owl")
-        logger.info(f"[Ontology Transition] Creating new empty ontology namespace: {onto.base_iri}")
-        
+        onto = get_ontology(
+            f"http://reasonsforall.com/tenant_{self.tenant_id}.owl")
+        logger.info(
+            f"[Ontology Transition] Creating new empty ontology namespace: {onto.base_iri}")
+
         with onto:
             # 1. Dynamically define base classes from quads
             classes = {}
@@ -25,9 +28,11 @@ class OntologyEngine:
                 if q.get("type") == "ClassDefinition" or (q.get("predicate") == "is_a" and q.get("object") == "Class"):
                     class_name = q["subject"]
                     if class_name not in classes:
-                        classes[class_name] = types.new_class(class_name, (Thing,))
-                        logger.info(f"  -> Rehydrated Class Concept: '{class_name}' (subClassOf Thing)")
-            
+                        classes[class_name] = types.new_class(
+                            class_name, (Thing,))
+                        logger.info(
+                            f"  -> Rehydrated Class Concept: '{class_name}' (subClassOf Thing)")
+
             # 2. Build subclass subsumption hierarchies (cycle-safe)
             def _get_all_ancestors(cls, visited=None):
                 """Walk the MRO upward to collect all ancestor class objects."""
@@ -47,12 +52,13 @@ class OntologyEngine:
                     if child not in classes or parent not in classes:
                         continue  # one side missing — skip silently
 
-                    child_cls  = classes[child]
+                    child_cls = classes[child]
                     parent_cls = classes[parent]
 
                     # Skip self-references
                     if child_cls is parent_cls or child == parent:
-                        logger.warning(f"  -> Skipped self-referencing hierarchy: {child} ⊑ {child}")
+                        logger.warning(
+                            f"  -> Skipped self-referencing hierarchy: {child} ⊑ {child}")
                         continue
 
                     # Skip if parent is already an ancestor (would create a cycle)
@@ -75,7 +81,8 @@ class OntologyEngine:
 
                     try:
                         child_cls.__bases__ = (parent_cls,)
-                        logger.info(f"  -> Rehydrated Subsumption Path: {child} ⊑ {parent}")
+                        logger.info(
+                            f"  -> Rehydrated Subsumption Path: {child} ⊑ {parent}")
                     except TypeError as cycle_err:
                         # Fallback: use is_a instead of __bases__ to avoid the metaclass conflict
                         logger.warning(
@@ -84,16 +91,17 @@ class OntologyEngine:
                         )
                         child_cls.is_a.append(parent_cls)
 
-            
             # 3. Build object properties (relationships)
             properties = {}
             for q in quads:
                 if q.get("type") == "ObjectProperty" or q.get("predicate").startswith("has_"):
                     prop_name = q["predicate"]
                     if prop_name not in properties:
-                        properties[prop_name] = types.new_class(prop_name, (ObjectProperty,))
-                        logger.info(f"  -> Rehydrated ObjectProperty Relationship: '{prop_name}'")
-            
+                        properties[prop_name] = types.new_class(
+                            prop_name, (ObjectProperty,))
+                        logger.info(
+                            f"  -> Rehydrated ObjectProperty Relationship: '{prop_name}'")
+
             # 4. Build class restrictions (e.g. orders must have some order_lines)
             for q in quads:
                 sub = q.get("subject")
@@ -101,31 +109,36 @@ class OntologyEngine:
                 obj = q.get("object") or q.get("object_val")
                 quant = q.get("quantifier", "none")
                 card = q.get("cardinality_value")
-                
+
                 # If it's a relationship restriction on classes
                 if sub in classes and obj in classes and pred in properties:
                     prop = properties[pred]
                     target = classes[obj]
-                    
+
                     if quant == "some":
                         classes[sub].is_a.append(prop.some(target))
-                        logger.info(f"  -> Bound Existential Restriction: {sub} ⊑ ∃{pred}.{obj}")
+                        logger.info(
+                            f"  -> Bound Existential Restriction: {sub} ⊑ ∃{pred}.{obj}")
                     elif quant == "only":
                         classes[sub].is_a.append(prop.only(target))
-                        logger.info(f"  -> Bound Universal Restriction: {sub} ⊑ ∀{pred}.{obj}")
+                        logger.info(
+                            f"  -> Bound Universal Restriction: {sub} ⊑ ∀{pred}.{obj}")
                     elif quant == "exactly":
                         n = int(card) if card is not None else 1
                         classes[sub].is_a.append(prop.exactly(n, target))
-                        logger.info(f"  -> Bound Cardinality Restriction: {sub} ⊑ ={n}{pred}.{obj}")
+                        logger.info(
+                            f"  -> Bound Cardinality Restriction: {sub} ⊑ ={n}{pred}.{obj}")
                     elif quant == "min":
                         n = int(card) if card is not None else 1
                         classes[sub].is_a.append(prop.min(n, target))
-                        logger.info(f"  -> Bound MinCardinality Restriction: {sub} ⊑ ≥{n}{pred}.{obj}")
+                        logger.info(
+                            f"  -> Bound MinCardinality Restriction: {sub} ⊑ ≥{n}{pred}.{obj}")
                     elif quant == "max":
                         n = int(card) if card is not None else 1
                         classes[sub].is_a.append(prop.max(n, target))
-                        logger.info(f"  -> Bound MaxCardinality Restriction: {sub} ⊑ ≤{n}{pred}.{obj}")
-                        
+                        logger.info(
+                            f"  -> Bound MaxCardinality Restriction: {sub} ⊑ ≤{n}{pred}.{obj}")
+
             # 5. Build disjointness boundaries dynamically from quads if specified
             for q in quads:
                 sub = q.get("subject")
@@ -133,28 +146,31 @@ class OntologyEngine:
                 obj = q.get("object") or q.get("object_val")
                 if (q.get("type") == "DisjointClasses" or pred == "disjointWith") and sub in classes and obj in classes:
                     AllDisjoint([classes[sub], classes[obj]])
-                    logger.info(f"  -> Bound Dynamic Disjointness: AllDisjoint([{sub}, {obj}])")
-                    
+                    logger.info(
+                        f"  -> Bound Dynamic Disjointness: AllDisjoint([{sub}, {obj}])")
+
         return onto
 
     def parse_expression_tree(self, tree: dict, onto_classes: dict, onto_properties: dict):
         if not tree:
             return Thing
-            
+
         # Support raw class name string input
         if isinstance(tree, str):
             name = tree
-            logger.info(f"[Parser Transition] Parsing raw class string leaf node -> Concept: '{name}'")
+            logger.info(
+                f"[Parser Transition] Parsing raw class string leaf node -> Concept: '{name}'")
             cls = onto_classes.get(name)
             if not cls:
                 cls = types.new_class(name, (Thing,))
                 onto_classes[name] = cls
             return cls
-            
+
         # Support direct class_name leaf nodes
         if isinstance(tree, dict) and "class_name" in tree:
             name = tree["class_name"]
-            logger.info(f"[Parser Transition] Parsing class_name dict leaf node -> Concept: '{name}'")
+            logger.info(
+                f"[Parser Transition] Parsing class_name dict leaf node -> Concept: '{name}'")
             cls = onto_classes.get(name)
             if not cls:
                 cls = types.new_class(name, (Thing,))
@@ -164,67 +180,79 @@ class OntologyEngine:
         if isinstance(tree, dict) and "operator" in tree:
             op = tree["operator"].upper()
             logger.info(f"[Parser Transition] Parsing operator node: '{op}'")
-            
+
             if op == "SUBCLASSOF":
                 # Intersect left (subject) and right (restriction) so both are evaluated together
                 left_tree = tree.get("left")
                 right_tree = tree.get("right")
-                left = self.parse_expression_tree(left_tree, onto_classes, onto_properties)
-                right = self.parse_expression_tree(right_tree, onto_classes, onto_properties)
-                logger.info(f"  -> SubClassOf: combining left='{getattr(left,'name',str(left))}' with right restriction")
+                left = self.parse_expression_tree(
+                    left_tree, onto_classes, onto_properties)
+                right = self.parse_expression_tree(
+                    right_tree, onto_classes, onto_properties)
+                logger.info(
+                    f"  -> SubClassOf: combining left='{getattr(left,'name',str(left))}' with right restriction")
                 return left & right
-                
+
             elif op == "FORALL":
                 prop_name = tree.get("property_name")
                 filler_tree = tree.get("filler")
-                logger.info(f"  -> Building Universal Restriction: ∀{prop_name}.(filler)")
+                logger.info(
+                    f"  -> Building Universal Restriction: ∀{prop_name}.(filler)")
                 prop = onto_properties.get(prop_name)
                 if prop_name and not prop:
                     prop = types.new_class(prop_name, (ObjectProperty,))
                     onto_properties[prop_name] = prop
-                filler = self.parse_expression_tree(filler_tree, onto_classes, onto_properties)
+                filler = self.parse_expression_tree(
+                    filler_tree, onto_classes, onto_properties)
                 return prop.only(filler) if prop else Thing
-                
+
             elif op == "EXISTS":
                 prop_name = tree.get("property_name")
                 filler_tree = tree.get("filler")
-                logger.info(f"  -> Building Existential Restriction: ∃{prop_name}.(filler)")
+                logger.info(
+                    f"  -> Building Existential Restriction: ∃{prop_name}.(filler)")
                 prop = onto_properties.get(prop_name)
                 if prop_name and not prop:
                     prop = types.new_class(prop_name, (ObjectProperty,))
                     onto_properties[prop_name] = prop
-                filler = self.parse_expression_tree(filler_tree, onto_classes, onto_properties)
+                filler = self.parse_expression_tree(
+                    filler_tree, onto_classes, onto_properties)
                 return prop.some(filler) if prop else Thing
-                
+
             elif op == "NOT":
                 conditions = tree.get("conditions", [])
                 if conditions:
-                    operand = self.parse_expression_tree(conditions[0], onto_classes, onto_properties)
+                    operand = self.parse_expression_tree(
+                        conditions[0], onto_classes, onto_properties)
                     return Not(operand)
                 operand_tree = tree.get("operand")
                 if operand_tree:
-                    operand = self.parse_expression_tree(operand_tree, onto_classes, onto_properties)
+                    operand = self.parse_expression_tree(
+                        operand_tree, onto_classes, onto_properties)
                     return Not(operand)
                 return Thing
-                
+
             elif op in ("AND", "OR"):
                 conditions = tree.get("conditions", [])
-                parsed_conds = [self.parse_expression_tree(c, onto_classes, onto_properties) for c in conditions]
+                parsed_conds = [self.parse_expression_tree(
+                    c, onto_classes, onto_properties) for c in conditions]
                 parsed_conds = [c for c in parsed_conds if c is not None]
                 if not parsed_conds:
                     return Thing
                 return And(parsed_conds) if op == "AND" else Or(parsed_conds)
-                
+
         # Fallback to old leaf format
         prop_name = tree.get("property") if isinstance(tree, dict) else None
-        obj_class_name = tree.get("object_class") if isinstance(tree, dict) else None
-        
+        obj_class_name = tree.get(
+            "object_class") if isinstance(tree, dict) else None
+
         prop = onto_properties.get(prop_name) if prop_name else None
         if prop_name and not prop:
             prop = types.new_class(prop_name, (ObjectProperty,))
             onto_properties[prop_name] = prop
-            
-        obj_class = onto_classes.get(obj_class_name) if obj_class_name else None
+
+        obj_class = onto_classes.get(
+            obj_class_name) if obj_class_name else None
         if obj_class_name and not obj_class:
             obj_class = types.new_class(obj_class_name, (Thing,))
             onto_classes[obj_class_name] = obj_class
@@ -233,57 +261,60 @@ class OntologyEngine:
             return prop.some(obj_class)
         elif obj_class:
             return obj_class
-            
+
         return Thing
 
     def format_expression_tree_dl(self, tree: dict) -> str:
         if not tree:
             return "⊤"
-            
+
         # Support raw class name string input
         if isinstance(tree, str):
             return tree
-            
+
         if isinstance(tree, dict) and "class_name" in tree:
             return tree["class_name"]
-            
+
         if isinstance(tree, dict) and "operator" in tree:
             op = tree["operator"].upper()
-            
+
             if op == "SUBCLASSOF":
                 left = self.format_expression_tree_dl(tree.get("left"))
                 right = self.format_expression_tree_dl(tree.get("right"))
                 return f"{left} ⊑ {right}"
-                
+
             elif op == "FORALL":
                 prop_name = tree.get("property_name", "")
                 filler = self.format_expression_tree_dl(tree.get("filler"))
                 return f"∀{prop_name}.({filler})"
-                
+
             elif op == "EXISTS":
                 prop_name = tree.get("property_name", "")
                 filler = self.format_expression_tree_dl(tree.get("filler"))
                 return f"∃{prop_name}.({filler})"
-                
+
             elif op == "NOT":
                 conditions = tree.get("conditions", [])
                 if conditions:
                     operand = self.format_expression_tree_dl(conditions[0])
                 else:
-                    operand = self.format_expression_tree_dl(tree.get("operand"))
+                    operand = self.format_expression_tree_dl(
+                        tree.get("operand"))
                 return f"¬({operand})"
-                
+
             elif op in ("AND", "OR"):
                 conditions = tree.get("conditions", [])
-                formatted_conds = [self.format_expression_tree_dl(c) for c in conditions]
+                formatted_conds = [
+                    self.format_expression_tree_dl(c) for c in conditions]
                 formatted_conds = [c for c in formatted_conds if c]
                 if not formatted_conds:
                     return "⊤"
                 symbol = " ⊓ " if op == "AND" else " ⊔ "
                 return "(" + symbol.join(formatted_conds) + ")"
-                
+
         prop_name = tree.get("property") if isinstance(tree, dict) else None
-        obj_class_name = tree.get("object_class") if isinstance(tree, dict) else None
+        obj_class_name = tree.get(
+            "object_class") if isinstance(tree, dict) else None
         if prop_name and obj_class_name:
             return f"∃{prop_name}.{obj_class_name}"
         elif obj_class_name:
@@ -295,14 +326,15 @@ class OntologyEngine:
         Runs description logic inference over the dynamic owlready2 ontology classes and properties.
         """
         start_time = time.perf_counter()
-        
+
         # Resiliently parse payload_data if it's a string
         if isinstance(payload_data, str):
             try:
                 payload_data = json.loads(payload_data)
             except Exception as e:
-                logger.error(f"Failed to parse payload_data string as JSON: {e}")
-                
+                logger.error(
+                    f"Failed to parse payload_data string as JSON: {e}")
+
         # Resiliently parse expression_tree if it's a string
         if isinstance(payload_data, dict) and "expression_tree" in payload_data:
             expr_tree = payload_data["expression_tree"]
@@ -310,72 +342,83 @@ class OntologyEngine:
                 try:
                     payload_data["expression_tree"] = json.loads(expr_tree)
                 except Exception as e:
-                    logger.error(f"Failed to parse expression_tree string as JSON: {e}")
-        
+                    logger.error(
+                        f"Failed to parse expression_tree string as JSON: {e}")
+
         # Build the ontology using real owlready2 classes & concepts
         onto = self.rehydrate_ontology(quads)
-        
+
         is_valid = True
         violations = []
-        
+
         # Generate the Description Logic logical statement
         generated_dl_statement = ""
         if isinstance(payload_data, dict) and "expression_tree" in payload_data:
             expr_tree = payload_data["expression_tree"]
             if isinstance(expr_tree, dict) and expr_tree.get("operator", "").upper() == "SUBCLASSOF":
-                generated_dl_statement = self.format_expression_tree_dl(expr_tree)
+                generated_dl_statement = self.format_expression_tree_dl(
+                    expr_tree)
             else:
-                subject_class_name = payload_data.get("subject_class", "Subject")
+                subject_class_name = payload_data.get(
+                    "subject_class", "Subject")
                 dl_expr = self.format_expression_tree_dl(expr_tree)
                 generated_dl_statement = f"{subject_class_name} ⊑ {dl_expr}"
         else:
             generated_dl_statement = "DL Check: ⊤"
-        
+
         with onto:
             # 2. Evaluate Dynamic Expression Tree from Agents
             if isinstance(payload_data, dict) and "expression_tree" in payload_data:
                 onto_classes = {cls.name: cls for cls in onto.classes()}
-                onto_properties = {prop.name: prop for prop in onto.object_properties()}
-                
+                onto_properties = {
+                    prop.name: prop for prop in onto.object_properties()}
+
                 expr_tree = payload_data["expression_tree"]
                 if isinstance(expr_tree, dict):
-                    logical_construct = self.parse_expression_tree(expr_tree, onto_classes, onto_properties)
-                    
+                    logical_construct = self.parse_expression_tree(
+                        expr_tree, onto_classes, onto_properties)
+
                     subject_class_name = payload_data.get("subject_class")
                     if not subject_class_name and expr_tree.get("operator", "").upper() == "SUBCLASSOF":
                         left_tree = expr_tree.get("left", {})
                         if isinstance(left_tree, dict):
                             subject_class_name = left_tree.get("class_name")
-                        
+
                     if not subject_class_name:
                         subject_class_name = "Subject"
-                        
+
                     if subject_class_name:
                         subject_class = onto_classes.get(subject_class_name)
                         if not subject_class:
-                            subject_class = types.new_class(subject_class_name, (Thing,))
+                            subject_class = types.new_class(
+                                subject_class_name, (Thing,))
                             onto_classes[subject_class_name] = subject_class
-                        
+
                         # Use pure-Python OWL RL reasoning via rdflib + owlrl (no JVM required)
                         try:
                             # Dynamically resolve metaclasses to avoid Python metaclass conflict
-                            TempQueryClass = types.new_class("TempQueryClass", (subject_class,))
+                            TempQueryClass = types.new_class(
+                                "TempQueryClass", (subject_class,))
                             TempQueryClass.equivalent_to = [logical_construct]
-                            logger.info(f"[OntologyEngine] TempQueryClass ≡ {generated_dl_statement}")
+                            logger.info(
+                                f"[OntologyEngine] TempQueryClass ≡ {generated_dl_statement}")
 
-                            logger.info("[OntologyEngine] Running OWL RL closure (rdflib + owlrl) as the sole reasoner")
+                            logger.info(
+                                "[OntologyEngine] Running OWL RL closure (rdflib + owlrl) as the sole reasoner")
                             try:
                                 from rdflib import Graph, URIRef
                                 from rdflib.namespace import OWL, RDFS
                                 from owlrl import DeductiveClosure, OWLRL_Semantics
                             except Exception as imp_e:
-                                logger.error(f"[OntologyEngine] OWL RL libraries not available: {imp_e}")
+                                logger.error(
+                                    f"[OntologyEngine] OWL RL libraries not available: {imp_e}")
                                 is_valid = False
                                 violations.append(
                                     "Logical Inference Failed: OWL RL libraries not installed. Install `rdflib` and `owlrl`."
                                 )
                             else:
-                                import tempfile, os
+                                import tempfile
+                                import os
                                 try:
                                     # Try to obtain an rdflib graph directly from owlready2 world
                                     try:
@@ -383,18 +426,22 @@ class OntologyEngine:
                                         tf_name = None
                                     except Exception:
                                         # Fallback: dump ontology to a temporary RDF/XML file
-                                        tf = tempfile.NamedTemporaryFile(delete=False, suffix=".owl")
+                                        tf = tempfile.NamedTemporaryFile(
+                                            delete=False, suffix=".owl")
                                         tf.close()
-                                        onto.save(file=tf.name, format="rdfxml")
+                                        onto.save(file=tf.name,
+                                                  format="rdfxml")
                                         rdfg = Graph()
                                         rdfg.parse(tf.name)
                                         tf_name = tf.name
 
                                     # Run OWL RL closure (pure-Python)
-                                    DeductiveClosure(OWLRL_Semantics).expand(rdfg)
+                                    DeductiveClosure(
+                                        OWLRL_Semantics).expand(rdfg)
 
                                     # Check for unsatisfiable TempQueryClass by IRI
-                                    temp_iri = getattr(TempQueryClass, 'iri', None)
+                                    temp_iri = getattr(
+                                        TempQueryClass, 'iri', None)
                                     unsat = False
                                     if temp_iri:
                                         tref = URIRef(temp_iri)
@@ -405,15 +452,18 @@ class OntologyEngine:
 
                                     if unsat:
                                         is_valid = False
-                                        logger.info("[OntologyEngine] ✗ Verdict (OWL RL): UNSATISFIABLE — logical contradiction detected.")
+                                        logger.info(
+                                            "[OntologyEngine] ✗ Verdict (OWL RL): UNSATISFIABLE — logical contradiction detected.")
                                         violations.append(
                                             "Logical Inference Violation (OWL RL): The query is inconsistent according to OWL RL closure."
                                         )
                                     else:
-                                        logger.info("[OntologyEngine] ✓ Verdict (OWL RL): SATISFIABLE — no contradiction found.")
+                                        logger.info(
+                                            "[OntologyEngine] ✓ Verdict (OWL RL): SATISFIABLE — no contradiction found.")
 
                                 except Exception as fallback_err:
-                                    logger.error(f"[OntologyEngine] OWL RL processing failed: {fallback_err}")
+                                    logger.error(
+                                        f"[OntologyEngine] OWL RL processing failed: {fallback_err}")
                                     is_valid = False
                                     violations.append(
                                         f"Logical Inference Failed: OWL RL processing error: {fallback_err}"
@@ -426,14 +476,15 @@ class OntologyEngine:
                                     except Exception:
                                         pass
                         except Exception as e:
-                            logger.error(f"[OntologyEngine] Unexpected error preparing OWL RL check: {e}")
+                            logger.error(
+                                f"[OntologyEngine] Unexpected error preparing OWL RL check: {e}")
                             is_valid = False
                             violations.append(f"Logical Inference Failed: {e}")
-                    
+
         # Extract connecting TBox rules
         connecting_tbox = []
         owl_inference_transitions = []
-        
+
         # 1. Helper to gather all classes in expression tree
         def get_classes_in_expr(expr):
             if not expr:
@@ -457,15 +508,17 @@ class OntologyEngine:
                         cls_set.update(get_classes_in_expr(c))
                 return cls_set
             return set()
-            
+
         referenced_classes = set()
         if isinstance(payload_data, dict) and "expression_tree" in payload_data:
-            referenced_classes = get_classes_in_expr(payload_data["expression_tree"])
-            
-        subject_name = payload_data.get("subject_class") if isinstance(payload_data, dict) else ""
+            referenced_classes = get_classes_in_expr(
+                payload_data["expression_tree"])
+
+        subject_name = payload_data.get(
+            "subject_class") if isinstance(payload_data, dict) else ""
         if subject_name:
             referenced_classes.add(subject_name)
-            
+
         # Add any transitively related classes (from the quads) to reference classes
         expanded = True
         while expanded:
@@ -484,7 +537,7 @@ class OntologyEngine:
             obj = q.get("object") or q.get("object_val")
             quant = q.get("quantifier", "none")
             card = q.get("cardinality_value")
-            
+
             if sub in referenced_classes:
                 if q.get("type") == "ClassHierarchy" or pred == "subClassOf":
                     connecting_tbox.append(f"{sub} ⊑ {obj}")
@@ -503,28 +556,36 @@ class OntologyEngine:
         if isinstance(payload_data, dict) and "expression_tree" in payload_data:
             expr_tree = payload_data["expression_tree"]
             # Start with assertion
-            owl_inference_transitions.append(f"Declare TempQueryClass representing the check intersection.")
-            owl_inference_transitions.append(f"Assert: `TempQueryClass ⊑ {subject_class_name}` (Subject concept inheritance).")
-            
+            owl_inference_transitions.append(
+                f"Declare TempQueryClass representing the check intersection.")
+            owl_inference_transitions.append(
+                f"Assert: `TempQueryClass ⊑ {subject_class_name}` (Subject concept inheritance).")
+
             # Show query assertion
             dl_query = self.format_expression_tree_dl(expr_tree)
-            owl_inference_transitions.append(f"Assert: `TempQueryClass ⊑ {dl_query}` (Query logic assertion).")
-            
+            owl_inference_transitions.append(
+                f"Assert: `TempQueryClass ⊑ {dl_query}` (Query logic assertion).")
+
             # Show rehydrated connections
             for axiom in connecting_tbox:
-                owl_inference_transitions.append(f"Hydrate TBox Axiom: `{axiom}`")
-                
+                owl_inference_transitions.append(
+                    f"Hydrate TBox Axiom: `{axiom}`")
+
             # Show reasoner inferences
             if not is_valid:
-                owl_inference_transitions.append("Reasoner Subsumption Trace: Checked class restrictions recursively...")
-                owl_inference_transitions.append("  - Detected contradiction between query assertion and active TBox class restrictions.")
-                owl_inference_transitions.append(f"Inference Verdict: **`TempQueryClass ⊑ Nothing` (⊥ Inconsistent Concept Transition!)**")
+                owl_inference_transitions.append(
+                    "Reasoner Subsumption Trace: Checked class restrictions recursively...")
+                owl_inference_transitions.append(
+                    "  - Detected contradiction between query assertion and active TBox class restrictions.")
+                owl_inference_transitions.append(
+                    f"Inference Verdict: **`TempQueryClass ⊑ Nothing` (⊥ Inconsistent Concept Transition!)**")
             else:
-                owl_inference_transitions.append("Inference Verdict: **`TempQueryClass` is Consistent and Satisfiable (Top ⊤ Subsumption Transition)**")
+                owl_inference_transitions.append(
+                    "Inference Verdict: **`TempQueryClass` is Consistent and Satisfiable (Top ⊤ Subsumption Transition)**")
 
         # Simulate sub-millisecond reasoning processing time
-        time.sleep(0.002) 
-        
+        time.sleep(0.002)
+
         end_time = time.perf_counter()
         inference_time_ms = (end_time - start_time) * 1000
 
