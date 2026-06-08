@@ -18,9 +18,11 @@ router = APIRouter(
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 stripe.api_key = STRIPE_SECRET_KEY
 
+
 class CheckoutSessionRequest(BaseModel):
     success_url: str
     cancel_url: str
+
 
 @router.post("/create-checkout-session")
 def create_checkout_session(request: CheckoutSessionRequest, tenant_context: dict = Depends(verify_tenant)):
@@ -33,7 +35,8 @@ def create_checkout_session(request: CheckoutSessionRequest, tenant_context: dic
 
     # If no Stripe key is set, run simulated flow
     if not STRIPE_SECRET_KEY:
-        logger.warning("STRIPE_SECRET_KEY not set. Redirecting to simulated success page.")
+        logger.warning(
+            "STRIPE_SECRET_KEY not set. Redirecting to simulated success page.")
         # Simulating a Stripe session redirect by returning a mock checkout URL
         # which redirects user back with success=true and session_id
         mock_checkout_url = f"{request.success_url}{sep}session_id=mock_session_12345"
@@ -63,7 +66,8 @@ def create_checkout_session(request: CheckoutSessionRequest, tenant_context: dic
             metadata={
                 'tenant_id': tenant_id
             },
-            success_url=request.success_url + f"{sep}session_id={{CHECKOUT_SESSION_ID}}",
+            success_url=request.success_url +
+            f"{sep}session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=request.cancel_url,
         )
         return {"checkout_url": session.url, "simulated": False}
@@ -78,8 +82,9 @@ def complete_session(session_id: str, tenant_context: dict = Depends(verify_tena
     if not tenant_id:
         raise HTTPException(status_code=400, detail="Invalid tenant context")
 
-    logger.info(f"Completing checkout session {session_id} for tenant {tenant_id}")
-    
+    logger.info(
+        f"Completing checkout session {session_id} for tenant {tenant_id}")
+
     if session_id.startswith("mock_session"):
         _upgrade_tenant_to_premium(tenant_id)
         return {"status": "success", "message": "Simulated upgrade complete. Welcome to Premium!"}
@@ -95,7 +100,8 @@ def complete_session(session_id: str, tenant_context: dict = Depends(verify_tena
             _upgrade_tenant_to_premium(tenant_id)
             return {"status": "success", "message": "Upgrade complete. Welcome to Premium!"}
         else:
-            raise HTTPException(status_code=400, detail="Session tenant mismatch")
+            raise HTTPException(
+                status_code=400, detail="Session tenant mismatch")
     except Exception as e:
         logger.error(f"Failed to verify Stripe session {session_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -118,7 +124,8 @@ async def stripe_webhook(request: Request):
                 session = event_json.get("data", {}).get("object", {})
                 tenant_id = session.get("metadata", {}).get("tenant_id")
                 if tenant_id:
-                    logger.info(f"Simulating Stripe Webhook: Upgrading tenant {tenant_id} to Premium")
+                    logger.info(
+                        f"Simulating Stripe Webhook: Upgrading tenant {tenant_id} to Premium")
                     _upgrade_tenant_to_premium(tenant_id)
                     return {"status": "success", "message": "Upgraded tenant successfully (mocked)."}
         except Exception as e:
@@ -138,7 +145,8 @@ async def stripe_webhook(request: Request):
         session = event['data']['object']
         tenant_id = session.get('metadata', {}).get('tenant_id')
         if tenant_id:
-            logger.info(f"Stripe Webhook: checkout.session.completed received. Upgrading tenant {tenant_id} to Premium.")
+            logger.info(
+                f"Stripe Webhook: checkout.session.completed received. Upgrading tenant {tenant_id} to Premium.")
             _upgrade_tenant_to_premium(tenant_id)
 
     return {"status": "success"}
@@ -160,17 +168,22 @@ def _upgrade_tenant_to_premium(tenant_id: str):
     url_profile = f"{config.SUPABASE_URL}/rest/v1/profiles"
     params_profile = {"id": f"eq.{user_id}"}
     try:
-        httpx.patch(url_profile, params=params_profile, json={"is_premium": True}, headers=headers, timeout=10.0).raise_for_status()
-        logger.info(f"Successfully upgraded tenant profile '{user_id}' to Premium in profiles table.")
+        httpx.patch(url_profile, params=params_profile, json={
+                    "is_premium": True}, headers=headers, timeout=10.0).raise_for_status()
+        logger.info(
+            f"Successfully upgraded tenant profile '{user_id}' to Premium in profiles table.")
     except Exception as e:
-        logger.error(f"Failed to upgrade tenant profile '{user_id}' in profiles: {e}")
+        logger.error(
+            f"Failed to upgrade tenant profile '{user_id}' in profiles: {e}")
 
     # 2. Update tenant_configurations table (if any configs exist)
     url_config = f"{config.SUPABASE_URL}/rest/v1/tenant_configurations"
     params_config = {"tenant_id": f"eq.{tenant_id}"}
     try:
-        httpx.patch(url_config, params=params_config, json={"is_premium": True}, headers=headers, timeout=10.0).raise_for_status()
-        logger.info(f"Successfully upgraded tenant '{tenant_id}' in tenant_configurations table.")
+        httpx.patch(url_config, params=params_config, json={
+                    "is_premium": True}, headers=headers, timeout=10.0).raise_for_status()
+        logger.info(
+            f"Successfully upgraded tenant '{tenant_id}' in tenant_configurations table.")
     except Exception as e:
-        logger.error(f"Failed to upgrade tenant '{tenant_id}' in tenant_configurations: {e}")
-
+        logger.error(
+            f"Failed to upgrade tenant '{tenant_id}' in tenant_configurations: {e}")

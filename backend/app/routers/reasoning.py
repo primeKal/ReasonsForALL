@@ -13,10 +13,12 @@ router = APIRouter(
     tags=["reasoning"]
 )
 
+
 class VerifyPayloadRequest(BaseModel):
     agent_intent: str
     payload: Dict[str, Any]
     server_id: str
+
 
 @router.post("/verify")
 def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends(verify_api_key)):
@@ -30,13 +32,16 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
 
     try:
         # 1. Fetch server config to get the correct server_config_id globally
-        db_server = supabase_client.get_server_config_by_key_global(request.server_id)
+        db_server = supabase_client.get_server_config_by_key_global(
+            request.server_id)
         if not db_server:
-            raise HTTPException(status_code=404, detail="Reasoning server not found")
-            
+            raise HTTPException(
+                status_code=404, detail="Reasoning server not found")
+
         # 2. Fetch all quads/rules associated with this server config from Supabase
-        db_quads = supabase_client.get_quads_for_server(db_server["tenant_id"], db_server["id"])
-        
+        db_quads = supabase_client.get_quads_for_server(
+            db_server["tenant_id"], db_server["id"])
+
         # 3. Map db quads to standard ontology rules format
         quads = [
             {
@@ -47,12 +52,14 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
             }
             for q in db_quads
         ]
-        logger.info(f"Loaded {len(quads)} database rules for verify API request on server {request.server_id}")
+        logger.info(
+            f"Loaded {len(quads)} database rules for verify API request on server {request.server_id}")
     except HTTPException as he:
         raise he
     except Exception as e:
         logger.error(f"Failed to load rules for verify API request: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch rules for verification: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch rules for verification: {e}")
 
     # Re-hydrate the ontology, validate, and tear down memory context
     engine = OntologyEngine(tenant_id=db_server["tenant_id"])
@@ -61,7 +68,7 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
         payload_data=request.payload,
         quads=quads
     )
-    
+
     # Save verification API audit log to Supabase
     try:
         supabase_client.save_api_log(
@@ -75,7 +82,7 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
         )
     except Exception as log_err:
         logger.warning(f"Failed to log verify API request: {log_err}")
-    
+
     return {
         "agent_intent": request.agent_intent,
         "is_valid": validation_result["is_valid"],

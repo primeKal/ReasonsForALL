@@ -1,5 +1,5 @@
 export default function RequestsPage() {
-"use client"
+  "use client";
   let requests = [];
   try {
     requests = JSON.parse(

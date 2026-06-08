@@ -113,7 +113,8 @@ def update_server_status(tenant_id: str, server_key: str, status: str) -> None:
     params = {"tenant_id": f"eq.{tenant_id}", "server_key": f"eq.{server_key}"}
     headers = _headers()
     headers["Prefer"] = "return=minimal"
-    httpx.patch(url, params=params, json={"status": status}, headers=headers, timeout=10.0).raise_for_status()
+    httpx.patch(url, params=params, json={
+                "status": status}, headers=headers, timeout=10.0).raise_for_status()
 
 
 def update_server_llm_config(tenant_id: str, server_key: str, llm_provider: str, llm_api_key: str) -> None:
@@ -126,7 +127,8 @@ def update_server_llm_config(tenant_id: str, server_key: str, llm_provider: str,
         "llm_provider": llm_provider,
         "llm_api_key": llm_api_key
     }
-    httpx.patch(url, params=params, json=payload, headers=headers, timeout=10.0).raise_for_status()
+    httpx.patch(url, params=params, json=payload,
+                headers=headers, timeout=10.0).raise_for_status()
 
 
 def delete_server_config(tenant_id: str, server_key: str) -> None:
@@ -135,7 +137,8 @@ def delete_server_config(tenant_id: str, server_key: str) -> None:
     """
     url = f"{config.SUPABASE_URL}/rest/v1/tenant_configurations"
     params = {"tenant_id": f"eq.{tenant_id}", "server_key": f"eq.{server_key}"}
-    httpx.delete(url, params=params, headers=_headers(), timeout=10.0).raise_for_status()
+    httpx.delete(url, params=params, headers=_headers(),
+                 timeout=10.0).raise_for_status()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -180,7 +183,8 @@ def save_quad_store_rules(tenant_id: str, server_config_id: int, rules: list) ->
     ins_url = f"{config.SUPABASE_URL}/rest/v1/tenant_quad_store"
     headers = _headers()
     headers["Prefer"] = "return=minimal"
-    httpx.post(ins_url, json=records, headers=headers, timeout=15.0).raise_for_status()
+    httpx.post(ins_url, json=records, headers=headers,
+               timeout=15.0).raise_for_status()
 
 
 def get_quads_for_server(tenant_id: str, server_config_id: int) -> list:
@@ -206,7 +210,8 @@ def save_text_policies(tenant_id: str, server_config_id: int, policies: list) ->
     Deletes existing policies first, then inserts fresh ones.
     """
     del_url = f"{config.SUPABASE_URL}/rest/v1/tenant_text_policies"
-    del_params = {"tenant_id": f"eq.{tenant_id}", "server_config_id": f"eq.{server_config_id}"}
+    del_params = {"tenant_id": f"eq.{tenant_id}",
+                  "server_config_id": f"eq.{server_config_id}"}
     del_headers = _headers()
     del_headers["Prefer"] = "return=minimal"
     httpx.delete(del_url, params=del_params, headers=del_headers, timeout=10.0)
@@ -227,7 +232,8 @@ def save_text_policies(tenant_id: str, server_config_id: int, policies: list) ->
     ins_url = f"{config.SUPABASE_URL}/rest/v1/tenant_text_policies"
     ins_headers = _headers()
     ins_headers["Prefer"] = "return=minimal"
-    httpx.post(ins_url, json=records, headers=ins_headers, timeout=15.0).raise_for_status()
+    httpx.post(ins_url, json=records, headers=ins_headers,
+               timeout=15.0).raise_for_status()
 
 
 def get_text_policies_for_server(tenant_id: str, server_config_id: int) -> list:
@@ -239,7 +245,8 @@ def get_text_policies_for_server(tenant_id: str, server_config_id: int) -> list:
         "order": "id.asc",
     }
     try:
-        response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
+        response = httpx.get(url, params=params,
+                             headers=_headers(), timeout=10.0)
         response.raise_for_status()
         return response.json()
     except Exception:
@@ -274,7 +281,8 @@ def save_api_log(
     try:
         headers = _headers()
         headers["Prefer"] = "return=minimal"
-        httpx.post(url, json=record, headers=headers, timeout=10.0).raise_for_status()
+        httpx.post(url, json=record, headers=headers,
+                   timeout=10.0).raise_for_status()
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Failed to save API log: {e}")
@@ -290,7 +298,8 @@ def get_api_logs_for_server(tenant_id: str, server_config_id: int) -> list:
         "limit": 100,  # limit to last 100 logs
     }
     try:
-        response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
+        response = httpx.get(url, params=params,
+                             headers=_headers(), timeout=10.0)
         response.raise_for_status()
         return response.json()
     except Exception:
@@ -307,27 +316,32 @@ def is_tenant_premium(tenant_id: str) -> bool:
     url = f"{config.SUPABASE_URL}/rest/v1/profiles"
     params = {"id": f"eq.{user_id}", "select": "is_premium"}
     try:
-        response = httpx.get(url, params=params, headers=_headers(), timeout=5.0)
+        response = httpx.get(url, params=params,
+                             headers=_headers(), timeout=5.0)
         if response.status_code == 200:
             rows = response.json()
             if rows and rows[0].get("is_premium"):
                 return True
     except Exception as e:
         import logging
-        logging.getLogger(__name__).warning(f"Error checking profiles is_premium: {e}")
+        logging.getLogger(__name__).warning(
+            f"Error checking profiles is_premium: {e}")
 
     # 2. Check tenant_configurations table as fallback
     url_config = f"{config.SUPABASE_URL}/rest/v1/tenant_configurations"
-    params_config = {"tenant_id": f"eq.{tenant_id}", "is_premium": "eq.true", "select": "id"}
+    params_config = {"tenant_id": f"eq.{tenant_id}",
+                     "is_premium": "eq.true", "select": "id"}
     try:
-        response = httpx.get(url_config, params=params_config, headers=_headers(), timeout=5.0)
+        response = httpx.get(url_config, params=params_config,
+                             headers=_headers(), timeout=5.0)
         if response.status_code == 200:
             rows = response.json()
             if rows:
                 return True
     except Exception as e:
         import logging
-        logging.getLogger(__name__).warning(f"Error checking tenant_configurations is_premium: {e}")
+        logging.getLogger(__name__).warning(
+            f"Error checking tenant_configurations is_premium: {e}")
 
     return False
 
@@ -339,14 +353,13 @@ def get_profile_by_id(user_id: str) -> dict | None:
     url = f"{config.SUPABASE_URL}/rest/v1/profiles"
     params = {"id": f"eq.{user_id}", "select": "*"}
     try:
-        response = httpx.get(url, params=params, headers=_headers(), timeout=5.0)
+        response = httpx.get(url, params=params,
+                             headers=_headers(), timeout=5.0)
         if response.status_code == 200:
             rows = response.json()
             return rows[0] if rows else None
     except Exception as e:
         import logging
-        logging.getLogger(__name__).warning(f"Error fetching profile by ID {user_id}: {e}")
+        logging.getLogger(__name__).warning(
+            f"Error fetching profile by ID {user_id}: {e}")
     return None
-
-
-
