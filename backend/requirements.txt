@@ -10,4 +10,4 @@ httpx==0.28.1
 python-dotenv>=1.0.0
 stripe
 rdflib==6.4.0
-owlrl==6.1
+owlrl
