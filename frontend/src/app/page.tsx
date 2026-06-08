@@ -37,11 +37,11 @@ export default function LandingPage() {
     ],
     logical: [
       {
-        query: "Waiter subClassOf Employee; Waiter placing transaction",
+        query: "Waiter is-a Employee; Waiter placing transaction",
         verdict: "PERMITTED",
         isValid: true,
         latency: "1.9ms",
-        reason: "Consistent axiom. Employee is authorized to place transactions, and Waiter is a valid subclass of Employee."
+        reason: "Consistent neurosymbolic association. Employee is authorized to place transactions, and Waiter is a valid sub-role of Employee."
       },
       {
         query: "Waiter disjointWith Buyer; Waiter placing Buyer transaction",
@@ -309,6 +309,141 @@ export default function LandingPage() {
                   </p>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* How it Works Section */}
+        <section id="how-it-works" className="py-24 px-6 lg:px-14 border-t border-white/5 relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-violet-600/5 blur-[200px] rounded-full pointer-events-none" />
+          <div className="max-w-6xl mx-auto relative">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-4 py-1.5 text-xs font-bold text-violet-300 mb-6">
+                <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" />
+                Under the Hood
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">
+                How Ralles Works
+              </h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-base">
+                From raw database schema to deterministic AI guardrails in five automated steps.
+              </p>
+            </div>
+
+            {/* Step flow */}
+            <div className="relative">
+              {/* Connector line (desktop) */}
+              <div className="hidden lg:block absolute top-[52px] left-[calc(10%+28px)] right-[calc(10%+28px)] h-0.5"
+                style={{ background: 'linear-gradient(90deg, #7c3aed22, #7c3aed88, #6366f188, #0ea5e988, #0ea5e922)' }}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 lg:gap-4">
+                {[
+                  {
+                    step: '01',
+                    icon: '🗄️',
+                    color: 'from-violet-600 to-violet-500',
+                    glow: 'rgba(124,58,237,0.3)',
+                    title: 'Connect Database',
+                    desc: 'Paste your DB connection string — PostgreSQL, MySQL, or SQL Server. Ralles never stores row data, only the structural schema.',
+                  },
+                  {
+                    step: '02',
+                    icon: '🤖',
+                    color: 'from-indigo-600 to-indigo-500',
+                    glow: 'rgba(99,102,241,0.3)',
+                    title: 'Multi-Agent Parsing',
+                    desc: 'A cooperative agent swarm inspects relations, constraints, triggers, and functions to extract business semantics automatically.',
+                  },
+                  {
+                    step: '03',
+                    icon: '🕸️',
+                    color: 'from-blue-600 to-cyan-500',
+                    glow: 'rgba(59,130,246,0.3)',
+                    title: 'Association Mapping',
+                    desc: 'Business entities and guardrail rules are mapped into a neurosymbolic association graph stored in your private tenant memory.',
+                  },
+                  {
+                    step: '04',
+                    icon: '🧠',
+                    color: 'from-cyan-600 to-teal-500',
+                    glow: 'rgba(6,182,212,0.3)',
+                    title: 'Association Graph',
+                    desc: 'Entities and associations form an interactive graph you can explore and export to any graph database.',
+                  },
+                  {
+                    step: '05',
+                    icon: '🛡️',
+                    color: 'from-emerald-600 to-green-500',
+                    glow: 'rgba(16,185,129,0.3)',
+                    title: 'Runtime Guardrails',
+                    desc: 'Every AI agent intent is verified against the neurosymbolic association map in < 5ms. Tautologies are permitted; all others are blocked.',
+                  },
+                ].map((item, i) => (
+                  <div key={i} className="flex flex-col items-center text-center group">
+                    {/* Icon circle */}
+                    <div
+                      className="relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5 transition-transform group-hover:-translate-y-1 group-hover:scale-105"
+                      style={{
+                        background: `linear-gradient(135deg, ${item.color.replace('from-', '').replace(' to-', ', ')})`.replace('from-', '').replace(' to-', ', '),
+                        boxShadow: `0 0 24px ${item.glow}`,
+                      }}
+                    >
+                      <div
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+                        style={{ background: `linear-gradient(135deg, var(--tw-gradient-from, #7c3aed), var(--tw-gradient-to, #6366f1))` }}
+                      >
+                        {item.icon}
+                      </div>
+                      {/* Step number badge */}
+                      <div
+                        className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white border border-slate-950"
+                        style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }}
+                      >
+                        {i + 1}
+                      </div>
+                    </div>
+
+                    <h3 className="font-bold text-white text-base mb-2 group-hover:text-violet-300 transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-slate-400 text-xs leading-relaxed max-w-[180px]">
+                      {item.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Flow arrows summary bar */}
+            <div className="mt-16 rounded-2xl border border-white/5 bg-slate-900/40 backdrop-blur-sm p-6 overflow-x-auto">
+              <div className="flex items-center gap-0 min-w-max mx-auto w-fit">
+                {[
+                  { label: 'Your DB', icon: '🗄️', sublabel: 'postgres / mysql' },
+                  { label: 'Schema Parser', icon: '🤖', sublabel: 'multi-agent swarm' },
+                  { label: 'Association Map', icon: '📐', sublabel: 'neurosymbolic memory' },
+                  { label: 'Association Graph', icon: '🕸️', sublabel: 'explore & export' },
+                  { label: 'Reasoning Engine', icon: '🧠', sublabel: '< 5ms guardrail check' },
+                  { label: 'AI Agent', icon: '✅', sublabel: 'Permitted or Blocked' },
+                ].map((node, i, arr) => (
+                  <div key={i} className="flex items-center">
+                    <div className="flex flex-col items-center gap-1.5 px-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/8 flex items-center justify-center text-lg">
+                        {node.icon}
+                      </div>
+                      <span className="text-white text-[10px] font-bold whitespace-nowrap">{node.label}</span>
+                      <span className="text-slate-500 text-[9px] whitespace-nowrap">{node.sublabel}</span>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div className="flex flex-col items-center -mx-1">
+                        <svg width="28" height="12" viewBox="0 0 28 12">
+                          <path d="M0 6 H22 M18 2 L26 6 L18 10" stroke="rgba(139,92,246,0.6)" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

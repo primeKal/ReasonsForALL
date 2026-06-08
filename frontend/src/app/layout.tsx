@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ralles | Deterministic AI Guardrails",
   description: "Ralles intercepts AI agent intents and validates them against explicit knowledge bases and database schemas using state-of-the-art multi-agent and neurosymbolic reasoning.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -25,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dashboard-dark`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

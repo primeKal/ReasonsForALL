@@ -128,3 +128,33 @@
     @apply font-sans;
   }
 }
+
+/* ─── Dashboard dark override ────────────────────────────────────────────── */
+/* Applied to <html> when inside the dashboard to match landing page design */
+html.dashboard-dark {
+  --background: #020817;
+  --foreground: #f1f5f9;
+  --card: rgba(15,23,42,0.8);
+  --card-foreground: #f1f5f9;
+  --popover: #0f172a;
+  --popover-foreground: #f1f5f9;
+  --primary: #7c3aed;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255,255,255,0.04);
+  --secondary-foreground: #94a3b8;
+  --muted: rgba(255,255,255,0.04);
+  --muted-foreground: #64748b;
+  --accent: rgba(124,58,237,0.12);
+  --accent-foreground: #c4b5fd;
+  --destructive: #ef4444;
+  --border: rgba(255,255,255,0.08);
+  --input: rgba(255,255,255,0.08);
+  --ring: rgba(124,58,237,0.4);
+  background: #020817;
+  color: #f1f5f9;
+}
+
+html.dashboard-dark body {
+  background: #020817;
+  color: #f1f5f9;
+}

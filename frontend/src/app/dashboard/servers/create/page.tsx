@@ -1,133 +1,357 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+
+const STEPS = [
+  {
+    num: 1,
+    title: "Server Name",
+    icon: "🏷️",
+    desc: "Give your reasoning server a recognizable name.",
+  },
+  {
+    num: 2,
+    title: "Database Dialect",
+    icon: "⚙️",
+    desc: "Select your relational database engine.",
+  },
+  {
+    num: 3,
+    title: "Secure Connection",
+    icon: "🔒",
+    desc: "Provide a connection string. Ralles only reads schema metadata, never row data.",
+  },
+];
 
 export default function CreateServerWizard() {
-  const [step, setStep] = useState(1)
-  const [formData, setFormData] = useState({ name: '', dialect: 'postgresql', connectionString: '' })
-  const [isExtracting, setIsExtracting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
-  const supabase = createClient()
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    name: "",
+    dialect: "postgresql",
+    connectionString: "",
+    repoUrl: "",
+  });
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const supabase = createClient();
 
-  // Redirect unauthenticated users to login
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.push('/login')
-    })
-  }, [])
-
-  const handleNext = () => setStep((s) => s + 1)
-  const handleBack = () => setStep((s) => s - 1)
+      if (!session) router.push("/login");
+    });
+  }, []);
 
   const handleConnect = async () => {
-    setError(null)
-    setIsExtracting(true)
-    
+    setError(null);
+    setIsExtracting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tenant/connect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/tenant/connect`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            server_name: formData.name,
+            connection_string: formData.connectionString,
+            repo_url: formData.repoUrl,
+          }),
         },
-        body: JSON.stringify({
-          server_name: formData.name,
-          connection_string: formData.connectionString
-        })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Failed to connect')
-      
-      router.push(`/dashboard/servers/${data.server_id}`)
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to connect");
+      router.push(`/dashboard/servers/${data.server_id}`);
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || 'Failed to extract schema from database connection string.')
-      setIsExtracting(false)
+      setError(
+        err.message ||
+          "Failed to extract schema from database connection string.",
+      );
+      setIsExtracting(false);
     }
-  }
+  };
+
+  const dialects = [
+    { value: "postgresql", label: "PostgreSQL", icon: "🐘" },
+    { value: "mysql", label: "MySQL", icon: "🐬" },
+    { value: "sqlserver", label: "SQL Server", icon: "🏢" },
+  ];
+
+  const cardStyle = {
+    background: "rgba(15,23,42,0.8)",
+    border: "1px solid rgba(99,102,241,0.2)",
+    boxShadow: "0 0 60px rgba(99,102,241,0.08)",
+    backdropFilter: "blur(16px)",
+  };
+
+  const inputStyle =
+    "bg-slate-900/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-500/50 h-11";
 
   return (
-    <div className="p-8 max-w-3xl mx-auto mt-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Connect Database</h1>
-        <p className="text-muted-foreground">Connect your database to automatically power your intelligent reasoning guardrails.</p>
-        
-        {/* Progress Bar */}
-        <div className="mt-8 flex items-center justify-between relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-muted -z-10"></div>
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary transition-all duration-500 -z-10" style={{ width: step === 1 ? '0%' : step === 2 ? '50%' : '100%' }}></div>
-          
-          {[1, 2, 3].map((num) => (
-            <div key={num} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 ${step >= num ? 'bg-primary text-white border-primary' : 'bg-background text-muted-foreground border-muted'}`}>
-              {num}
-            </div>
-          ))}
+    <div className="px-6 lg:px-14 py-16 max-w-2xl mx-auto">
+      {/* Page title */}
+      <div className="text-center mb-12">
+        <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-4 py-1.5 text-xs font-bold text-violet-300 mb-6">
+          <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" />
+          New Reasoning Server
         </div>
+        <h1 className="text-4xl font-extrabold text-white tracking-tight mb-3">
+          Connect Database
+        </h1>
+        <p className="text-slate-400 text-base">
+          Connect your database to automatically power your intelligent
+          reasoning guardrails.
+        </p>
       </div>
 
-      <Card className="shadow-lg border-primary/20">
-        <CardContent className="pt-6 min-h-[300px] flex flex-col justify-between">
+      {/* Step indicators */}
+      <div className="flex items-center justify-center gap-0 mb-10">
+        {STEPS.map((s, i) => (
+          <div key={s.num} className="flex items-center">
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all"
+                style={{
+                  background:
+                    step >= s.num
+                      ? "linear-gradient(135deg,#7c3aed,#6366f1)"
+                      : "rgba(255,255,255,0.04)",
+                  border:
+                    step >= s.num
+                      ? "2px solid rgba(124,58,237,0.5)"
+                      : "2px solid rgba(255,255,255,0.1)",
+                  color: step >= s.num ? "#fff" : "#64748b",
+                  boxShadow:
+                    step >= s.num ? "0 0 20px rgba(124,58,237,0.4)" : "none",
+                }}
+              >
+                {step > s.num ? "✓" : s.num}
+              </div>
+              <span
+                className="text-[10px] font-semibold hidden sm:block"
+                style={{ color: step >= s.num ? "#c4b5fd" : "#475569" }}
+              >
+                {s.title}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className="w-16 sm:w-24 h-0.5 mx-2 mb-5 transition-all"
+                style={{
+                  background:
+                    step > s.num
+                      ? "linear-gradient(90deg,#7c3aed,#6366f1)"
+                      : "rgba(255,255,255,0.06)",
+                }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Card */}
+      <div className="rounded-2xl overflow-hidden" style={cardStyle}>
+        <div
+          style={{
+            height: 3,
+            background: "linear-gradient(90deg,#7c3aed,#6366f1,#0ea5e9)",
+          }}
+        />
+
+        <div className="p-8">
           <AnimatePresence mode="wait">
             {step === 1 && (
-              <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                <CardHeader className="px-0">
-                  <CardTitle>Server Details</CardTitle>
-                  <CardDescription>Give your reasoning server a recognizable name.</CardDescription>
-                </CardHeader>
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-1">
+                    Server Details
+                  </h2>
+                  <p className="text-slate-400 text-sm">{STEPS[0].desc}</p>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Server Name</Label>
-                  <Input id="name" placeholder="e.g. Production Identity DB" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                  <Label
+                    htmlFor="name"
+                    className="text-slate-300 text-xs font-semibold"
+                  >
+                    Server Name
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g. Production Identity DB"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    className={inputStyle}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="repo"
+                    className="text-slate-300 text-xs font-semibold"
+                  >
+                    Repository URL (optional)
+                  </Label>
+                  <Input
+                    id="repo"
+                    placeholder="https://github.com/org/repo"
+                    value={formData.repoUrl}
+                    onChange={(e) =>
+                      setFormData({ ...formData, repoUrl: e.target.value })
+                    }
+                    className={inputStyle}
+                  />
                 </div>
               </motion.div>
             )}
 
             {step === 2 && (
-              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                <CardHeader className="px-0">
-                  <CardTitle>Engine Profile</CardTitle>
-                  <CardDescription>Select your relational dialect.</CardDescription>
-                </CardHeader>
-                <div className="space-y-2">
-                  <Label>SQL Dialect</Label>
-                  <Select value={formData.dialect} onValueChange={(val) => setFormData({...formData, dialect: val})}>
-                    <SelectTrigger><SelectValue placeholder="Select dialect" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="postgresql">PostgreSQL</SelectItem>
-                      <SelectItem value="mysql">MySQL</SelectItem>
-                      <SelectItem value="sqlserver">SQL Server</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-1">
+                    Engine Profile
+                  </h2>
+                  <p className="text-slate-400 text-sm">{STEPS[1].desc}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {dialects.map((d) => (
+                    <button
+                      key={d.value}
+                      onClick={() =>
+                        setFormData({ ...formData, dialect: d.value })
+                      }
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all"
+                      style={{
+                        background:
+                          formData.dialect === d.value
+                            ? "rgba(124,58,237,0.15)"
+                            : "rgba(255,255,255,0.03)",
+                        border:
+                          formData.dialect === d.value
+                            ? "1px solid rgba(124,58,237,0.5)"
+                            : "1px solid rgba(255,255,255,0.07)",
+                      }}
+                    >
+                      <span className="text-2xl">{d.icon}</span>
+                      <span
+                        className="text-xs font-semibold"
+                        style={{
+                          color:
+                            formData.dialect === d.value
+                              ? "#c4b5fd"
+                              : "#94a3b8",
+                        }}
+                      >
+                        {d.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </motion.div>
             )}
 
             {step === 3 && (
-              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                <CardHeader className="px-0">
-                  <CardTitle>Secure Connection</CardTitle>
-                  <CardDescription>Provide a read-only connection string.</CardDescription>
-                </CardHeader>
-                <div className="space-y-2">
-                  <Label htmlFor="conn">Connection URI</Label>
-                  <Input id="conn" type="password" autoComplete="new-password" placeholder={`${formData.dialect}://user:pass@host:port/db`} value={formData.connectionString} onChange={(e) => setFormData({...formData, connectionString: e.target.value})} />
+              <motion.div
+                key="step3"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-1">
+                    Secure Connection
+                  </h2>
+                  <p className="text-slate-400 text-sm">{STEPS[2].desc}</p>
                 </div>
+
+                {/* Security note */}
+                <div
+                  className="p-3.5 rounded-xl text-xs text-emerald-400 flex items-start gap-2.5"
+                  style={{
+                    background: "rgba(16,185,129,0.07)",
+                    border: "1px solid rgba(16,185,129,0.2)",
+                  }}
+                >
+                  <span className="flex-shrink-0 mt-0.5">🛡️</span>
+                  <span>
+                    Ralles only reads structural schema metadata (tables,
+                    columns, constraints). Row data and sensitive values are
+                    never accessed or stored.
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="conn"
+                    className="text-slate-300 text-xs font-semibold"
+                  >
+                    Connection URI
+                  </Label>
+                  <Input
+                    id="conn"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={`${formData.dialect}://user:pass@host:port/db`}
+                    value={formData.connectionString}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        connectionString: e.target.value,
+                      })
+                    }
+                    className={inputStyle}
+                  />
+                </div>
+
                 {isExtracting && (
-                  <div className="p-4 bg-muted/50 rounded-lg text-sm text-center animate-pulse mt-4">
-                    <p className="text-primary font-bold">🔍 Analyzing Database Structure & Generating Policies...</p>
+                  <div
+                    className="p-4 rounded-xl text-sm text-center"
+                    style={{
+                      background: "rgba(99,102,241,0.08)",
+                      border: "1px solid rgba(99,102,241,0.2)",
+                    }}
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <span className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+                      <p className="text-violet-300 font-semibold">
+                        Analyzing schema & generating neurosymbolic
+                        associations...
+                      </p>
+                    </div>
                   </div>
                 )}
+
                 {error && (
-                  <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg text-sm font-medium mt-4">
+                  <div
+                    className="p-4 rounded-xl text-sm text-red-400"
+                    style={{
+                      background: "rgba(239,68,68,0.07)",
+                      border: "1px solid rgba(239,68,68,0.2)",
+                    }}
+                  >
                     ❌ {error}
                   </div>
                 )}
@@ -135,18 +359,57 @@ export default function CreateServerWizard() {
             )}
           </AnimatePresence>
 
-          <div className="flex justify-between mt-8">
-            <Button variant="outline" onClick={handleBack} disabled={step === 1 || isExtracting}>Back</Button>
+          {/* Navigation buttons */}
+          <div
+            className="flex justify-between mt-8 pt-6"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <button
+              onClick={() => setStep((s) => s - 1)}
+              disabled={step === 1 || isExtracting}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-slate-300 hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              ← Back
+            </button>
+
             {step < 3 ? (
-              <Button onClick={handleNext} disabled={!formData.name}>Next Step</Button>
+              <button
+                onClick={() => setStep((s) => s + 1)}
+                disabled={step === 1 && !formData.name}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: "linear-gradient(135deg,#7c3aed,#6366f1)",
+                  boxShadow: "0 4px 20px rgba(124,58,237,0.35)",
+                }}
+              >
+                Next Step →
+              </button>
             ) : (
-              <Button onClick={handleConnect} disabled={isExtracting || !formData.connectionString}>
-                {isExtracting ? 'Connecting...' : 'Connect & Map'}
-              </Button>
+              <button
+                onClick={handleConnect}
+                disabled={isExtracting || !formData.connectionString}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: isExtracting
+                    ? "rgba(124,58,237,0.5)"
+                    : "linear-gradient(135deg,#7c3aed,#6366f1)",
+                  boxShadow: "0 4px 20px rgba(124,58,237,0.35)",
+                }}
+              >
+                {isExtracting ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  "🔗 Connect & Map Schema"
+                )}
+              </button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
-  )
+  );
 }

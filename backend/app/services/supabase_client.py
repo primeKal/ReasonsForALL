@@ -71,7 +71,7 @@ def get_servers_for_tenant(tenant_id: str) -> list:
         "tenant_id": f"eq.{tenant_id}",
         "server_key": "not.is.null",       # exclude legacy blank rows
         "order": "created_at.desc",
-        "select": "id,tenant_id,server_key,name,dialect,status,rules_extracted,synced_at,max_rules,row_scan_depth,is_premium,trial_expires_at,example_statement",
+        "select": "id,tenant_id,server_key,name,dialect,status,rules_extracted,synced_at,max_rules,row_scan_depth,is_premium,trial_expires_at,example_statement,llm_provider,llm_api_key",
     }
     response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
     response.raise_for_status()
@@ -112,6 +112,19 @@ def update_server_status(tenant_id: str, server_key: str, status: str) -> None:
     headers = _headers()
     headers["Prefer"] = "return=minimal"
     httpx.patch(url, params=params, json={"status": status}, headers=headers, timeout=10.0).raise_for_status()
+
+
+def update_server_llm_config(tenant_id: str, server_key: str, llm_provider: str, llm_api_key: str) -> None:
+    """Update custom LLM credentials for a server config."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_configurations"
+    params = {"tenant_id": f"eq.{tenant_id}", "server_key": f"eq.{server_key}"}
+    headers = _headers()
+    headers["Prefer"] = "return=minimal"
+    payload = {
+        "llm_provider": llm_provider,
+        "llm_api_key": llm_api_key
+    }
+    httpx.patch(url, params=params, json=payload, headers=headers, timeout=10.0).raise_for_status()
 
 
 def delete_server_config(tenant_id: str, server_key: str) -> None:
@@ -280,4 +293,58 @@ def get_api_logs_for_server(tenant_id: str, server_config_id: int) -> list:
         return response.json()
     except Exception:
         return []
+
+
+def is_tenant_premium(tenant_id: str) -> bool:
+    """
+    Checks if the given tenant is premium.
+    Checks both the profiles table and the tenant_configurations table.
+    """
+    # 1. Check profiles table first
+    user_id = tenant_id.replace("tenant_", "")
+    url = f"{config.SUPABASE_URL}/rest/v1/profiles"
+    params = {"id": f"eq.{user_id}", "select": "is_premium"}
+    try:
+        response = httpx.get(url, params=params, headers=_headers(), timeout=5.0)
+        if response.status_code == 200:
+            rows = response.json()
+            if rows and rows[0].get("is_premium"):
+                return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error checking profiles is_premium: {e}")
+
+    # 2. Check tenant_configurations table as fallback
+    url_config = f"{config.SUPABASE_URL}/rest/v1/tenant_configurations"
+    params_config = {"tenant_id": f"eq.{tenant_id}", "is_premium": "eq.true", "select": "id"}
+    try:
+        response = httpx.get(url_config, params=params_config, headers=_headers(), timeout=5.0)
+        if response.status_code == 200:
+            rows = response.json()
+            if rows:
+                return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error checking tenant_configurations is_premium: {e}")
+
+    return False
+
+
+def get_profile_by_id(user_id: str) -> dict | None:
+    """
+    Fetch a single user profile from Supabase by user ID.
+    """
+    url = f"{config.SUPABASE_URL}/rest/v1/profiles"
+    params = {"id": f"eq.{user_id}", "select": "*"}
+    try:
+        response = httpx.get(url, params=params, headers=_headers(), timeout=5.0)
+        if response.status_code == 200:
+            rows = response.json()
+            return rows[0] if rows else None
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error fetching profile by ID {user_id}: {e}")
+    return None
+
+
 

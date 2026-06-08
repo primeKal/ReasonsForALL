@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import tenant, reasoning, server
+from app.routers import tenant, reasoning, server, billing
 import logging
 import os
 
@@ -36,6 +36,7 @@ app.add_middleware(
 app.include_router(tenant.router)
 app.include_router(reasoning.router)
 app.include_router(server.router)
+app.include_router(billing.router)
 
 @app.get("/")
 def read_root():

@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
+
+const KnowledgeGraphDialog = dynamic(() => import('@/components/KnowledgeGraphDialog'), { ssr: false })
 
 export default function ServerDetailsPage({ params }: { params: any }) {
   const resolvedParams = params && typeof params.then === 'function' ? use(params) : params
@@ -18,6 +21,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const [rules, setRules] = useState<any[]>([])
   const [textPolicies, setTextPolicies] = useState<any[]>([])
   const [rulesSubTab, setRulesSubTab] = useState<'logical' | 'text'>('text')
+  const [graphDialogOpen, setGraphDialogOpen] = useState(false)
   const [apiKeys, setApiKeys] = useState<any[]>([])
   const [apiLogs, setApiLogs] = useState<any[]>([])
   const [expandedLogs, setExpandedLogs] = useState<Record<number, boolean>>({})
@@ -29,25 +33,120 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const [chatLoading, setChatLoading] = useState(false)
   const [reasoningMode, setReasoningMode] = useState<'text' | 'logical'>('text')
   const [expandedAnalysis, setExpandedAnalysis] = useState<Record<number, boolean>>({})
+  const [llmProvider, setLlmProvider] = useState<'gemini' | 'openai'>('gemini')
+  const [llmApiKey, setLlmApiKey] = useState('')
+  const [isSavingLLM, setIsSavingLLM] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    if (server) {
+    if (server && id) {
       const isLogical = reasoningMode === 'logical'
+      const storageKey = `ralles_chat_messages_${id}_${reasoningMode}`
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        try {
+          setChatMessages(JSON.parse(saved))
+          return
+        } catch (e) {
+          console.error("Failed to parse saved chat messages:", e)
+        }
+      }
+      
       setChatMessages([
         {
           sender: 'assistant',
           text: isLogical
-            ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal neurosymbolic description-logic inference on your assertions.\n\nType a logical statement below (e.g. classes, subclasses, or relations) to evaluate consistency.`
+            ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal neurosymbolic association inference on your assertions. Under Open World Assumption (OWA), a statement is permitted only if it is strictly entailed by the neurosymbolic association rules.\n\nType a logical statement below (e.g. roles, sub-roles, or relations) to evaluate consistency.`
             : `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default). I will compare your queries against natural-language business policies extracted from your database schema.\n\nAsk a policy query below.`,
           example: isLogical
-            ? (server.example_statement || "Waiter subClassOf Employee")
+            ? (server.example_statement || "Waiter is-a Employee")
             : "Can an anonymous user delete a rating?"
         }
       ])
     }
-  }, [server, reasoningMode])
+  }, [server, reasoningMode, id])
+
+  useEffect(() => {
+    if (id && chatMessages.length > 0) {
+      const storageKey = `ralles_chat_messages_${id}_${reasoningMode}`
+      localStorage.setItem(storageKey, JSON.stringify(chatMessages))
+    }
+  }, [chatMessages, id, reasoningMode])
+
+  const handleClearChat = () => {
+    if (!server || !id) return
+    const isLogical = reasoningMode === 'logical'
+    const storageKey = `ralles_chat_messages_${id}_${reasoningMode}`
+    localStorage.removeItem(storageKey)
+    setChatMessages([
+      {
+        sender: 'assistant',
+        text: isLogical
+          ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal neurosymbolic association inference on your assertions. Under Open World Assumption (OWA), a statement is permitted only if it is strictly entailed by the neurosymbolic association rules.\n\nType a logical statement below (e.g. roles, sub-roles, or relations) to evaluate consistency.`
+          : `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default). I will compare your queries against natural-language business policies extracted from your database schema.\n\nAsk a policy query below.`,
+        example: isLogical
+          ? (server.example_statement || "Waiter is-a Employee")
+          : "Can an anonymous user delete a rating?"
+      }
+    ])
+  }
+
+  const parseInlines = (text: string) => {
+    const parts = [];
+    let currentIdx = 0;
+    const regex = /(\*\*|`|\*)(.*?)\1/g;
+    let match;
+    
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > currentIdx) {
+        parts.push(text.substring(currentIdx, match.index));
+      }
+      
+      const delimiter = match[1];
+      const content = match[2];
+      
+      if (delimiter === "**") {
+        parts.push(<strong key={match.index} className="font-bold text-foreground dark:text-white">{content}</strong>);
+      } else if (delimiter === "`") {
+        parts.push(<code key={match.index} className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs text-primary">{content}</code>);
+      } else if (delimiter === "*") {
+        parts.push(<em key={match.index} className="italic">{content}</em>);
+      }
+      
+      currentIdx = regex.lastIndex;
+    }
+    
+    if (currentIdx < text.length) {
+      parts.push(text.substring(currentIdx));
+    }
+    
+    return parts.length > 0 ? parts : text;
+  };
+
+  const renderMarkdown = (text: string) => {
+    if (!text) return "";
+    const lines = text.split("\n");
+    return lines.map((line, idx) => {
+      if (line.startsWith("### ")) {
+        return <h3 key={idx} className="text-base font-bold mt-4 mb-2 text-foreground dark:text-white">{parseInlines(line.substring(4))}</h3>;
+      }
+      if (line.startsWith("## ")) {
+        return <h2 key={idx} className="text-lg font-bold mt-5 mb-2 text-foreground dark:text-white">{parseInlines(line.substring(3))}</h2>;
+      }
+      if (line.startsWith("# ")) {
+        return <h1 key={idx} className="text-xl font-bold mt-6 mb-3 text-foreground dark:text-white">{parseInlines(line.substring(2))}</h1>;
+      }
+      if (line.startsWith("- ") || line.startsWith("* ")) {
+        return <li key={idx} className="ml-4 list-disc text-muted-foreground dark:text-zinc-300 my-1">{parseInlines(line.substring(2))}</li>;
+      }
+      if (line.startsWith("> ")) {
+        return <blockquote key={idx} className="border-l-4 border-primary/45 pl-3 italic text-muted-foreground dark:text-zinc-400 my-2">{parseInlines(line.substring(2))}</blockquote>;
+      }
+      if (line.trim() === "") return <div key={idx} className="h-2" />;
+      return <p key={idx} className="my-1.5 leading-relaxed">{parseInlines(line)}</p>;
+    });
+  };
 
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,6 +232,43 @@ export default function ServerDetailsPage({ params }: { params: any }) {
     }
   }
 
+  const handleSaveLLMConfig = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSavingLLM(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}/llm_config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          llm_provider: llmProvider,
+          llm_api_key: llmApiKey
+        })
+      })
+
+      if (!res.ok) throw new Error('Failed to update LLM configuration')
+      
+      // Update local server object state to reflect configured status
+      setServer((prev: any) => ({
+        ...prev,
+        llm_provider: llmProvider,
+        llm_api_key_configured: !!llmApiKey,
+        llm_api_key_masked: llmApiKey ? (llmApiKey.includes('...') || llmApiKey.includes('•••') ? prev.llm_api_key_masked : (llmApiKey.length > 10 ? llmApiKey.substring(0, 7) + '...' + llmApiKey.substring(llmApiKey.length - 4) : '••••••••')) : ''
+      }))
+      alert('LLM configuration saved successfully!')
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to save LLM configuration')
+    } finally {
+      setIsSavingLLM(false)
+    }
+  }
+
   useEffect(() => {
     async function loadData() {
       const { data: { session } } = await supabase.auth.getSession()
@@ -154,7 +290,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           fetch(`${baseUrl}/api_keys`, { headers })
         ])
 
-        if (serverRes.ok) setServer(await serverRes.json())
+        if (serverRes.ok) {
+          const sData = await serverRes.json()
+          setServer(sData)
+          setLlmProvider(sData.llm_provider || 'gemini')
+          setLlmApiKey(sData.llm_api_key_configured ? sData.llm_api_key_masked : '')
+        }
         if (conceptsRes.ok) {
            const data = await conceptsRes.json()
            setConcepts(data.entities || [])
@@ -231,23 +372,23 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-primary/5 border-primary/20">
+                <Card className="bg-violet-500/5 border-violet-500/20 shadow-lg backdrop-blur-md">
                   <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Active Policies</CardTitle></CardHeader>
                   <CardContent><div className="text-4xl font-bold">{server.active_policies_count} <span className="text-sm font-normal text-muted-foreground">/ {server.active_policies_limit} Limit</span></div></CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
                   <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Inference Time (Avg)</CardTitle></CardHeader>
                   <CardContent><div className="text-4xl font-bold">{server.avg_inference_time_ms}<span className="text-sm font-normal text-muted-foreground">ms</span></div></CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
                   <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Recent Blocks</CardTitle></CardHeader>
                   <CardContent><div className="text-4xl font-bold text-red-400">{server.recent_blocks}</div></CardContent>
                 </Card>
               </div>
 
               {/* Policy Chat Interface */}
-              <Card className="border-primary/20 shadow-lg relative overflow-hidden bg-card">
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-indigo-500"></div>
+              <Card className="border-violet-500/20 shadow-2xl relative overflow-hidden bg-slate-950/60 backdrop-blur-md">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500"></div>
                 <CardHeader className="pb-3 border-b border-border/40">
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     <div>
@@ -260,8 +401,18 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                           : 'Logical Reasoning Mode (Beta) — formal description-logic inference using Ralles reasoning engine.'}
                       </CardDescription>
                     </div>
-                    {/* Reasoning Mode Toggle */}
-                    <div className="flex items-center gap-1.5 bg-muted/60 border border-border/50 rounded-xl p-1 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Clear Chat Button */}
+                      <button
+                        onClick={handleClearChat}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border/50 hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1"
+                        title="Clear conversation history"
+                      >
+                        🗑️ Clear
+                      </button>
+
+                      {/* Reasoning Mode Toggle */}
+                      <div className="flex items-center gap-1.5 bg-muted/60 border border-border/50 rounded-xl p-1">
                       <button
                         id="mode-toggle-text"
                         onClick={() => setReasoningMode('text')}
@@ -286,7 +437,8 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       </button>
                     </div>
                   </div>
-                </CardHeader>
+                </div>
+              </CardHeader>
                 <CardContent className="pt-6 space-y-4">
                   <div className="h-[380px] overflow-y-auto rounded-xl border border-border/50 bg-muted/10 p-4 space-y-4 flex flex-col justify-between">
                     <div className="space-y-4 overflow-y-auto pr-1 flex-1">
@@ -298,7 +450,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                               : 'bg-card border border-border/50 text-foreground rounded-tl-none space-y-3'
                           }`}>
                             {/* Message text */}
-                            <div className="whitespace-pre-wrap">{msg.text}</div>
+                            <div className="space-y-1 text-sm leading-relaxed break-words">{renderMarkdown(msg.text)}</div>
                             
                             {/* AI suggested rule placeholder (Intro Message Only) */}
                             {msg.example && (
@@ -430,9 +582,13 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       onChange={(e) => setChatInput(e.target.value)}
                       placeholder={reasoningMode === 'text' ? 'Ask a policy question (e.g. can a user create a rating?)' : 'Enter a logical statement (e.g. can a Waiter place an order?)'}
                       disabled={chatLoading}
-                      className="flex-1 bg-card border-border/60 text-sm h-11"
+                      className="flex-1 bg-slate-900/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-500/50 focus:ring-violet-500/20 h-11"
                     />
-                    <Button type="submit" disabled={chatLoading || !chatInput.trim()} className="text-white h-11 px-5 shadow-md">
+                    <Button 
+                      type="submit" 
+                      disabled={chatLoading || !chatInput.trim()} 
+                      className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-violet-500/10 border border-violet-500/30 hover:-translate-y-0.5 transition-all h-11 px-5"
+                    >
                       {reasoningMode === 'text' ? 'Check Policy' : 'Evaluate Logic'}
                     </Button>
                   </form>
@@ -442,21 +598,47 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           )}
 
           {activeTab === 'concepts' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Business Entities</CardTitle>
-                <CardDescription>The core business objects intelligently mapped from your database.</CardDescription>
+            <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <CardTitle>Business Entities</CardTitle>
+                    <CardDescription>The core business objects intelligently mapped from your database.</CardDescription>
+                  </div>
+                  <button
+                    onClick={() => setGraphDialogOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 transition-all shadow-sm"
+                  >
+                    🕸️ View Association Graph
+                  </button>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className="space-y-4">
-                  {concepts.length === 0 ? <p className="text-muted-foreground text-sm">No entities extracted yet.</p> : null}
+                  {concepts.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground border border-dashed border-border/45 rounded-xl bg-muted/5">
+                      No entities extracted yet.
+                      <br />
+                      <span className="text-xs text-muted-foreground/80 mt-1 block">
+                        Tip: Connect a database and sync schema to auto-extract business entities.
+                      </span>
+                    </div>
+                  ) : null}
                   {concepts.map(concept => (
-                    <div key={concept.name} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50">
+                    <div key={concept.name} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/30 transition-all">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-md bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold">C</div>
+                        <div className="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold text-sm">C</div>
                         <span className="font-semibold">{concept.name}</span>
                       </div>
-                      <span className="text-xs bg-muted px-2 py-1 rounded">{concept.status}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-muted px-2 py-1 rounded">{concept.status}</span>
+                        <button
+                          onClick={() => setGraphDialogOpen(true)}
+                          className="text-xs text-indigo-400 hover:underline font-medium px-2"
+                        >
+                          🕸️ Graph
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -465,7 +647,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           )}
 
           {activeTab === 'rules' && (
-            <Card>
+            <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
               <CardHeader className="pb-3 border-b border-border/40">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div>
@@ -473,7 +655,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     <CardDescription>
                       {rulesSubTab === 'text'
                         ? 'Natural language business policies extracted from triggers, functions, and database schema.'
-                        : 'Formal Description Logic constraints mapped from database keys and hierarchies.'}
+                        : 'Formal neurosymbolic association constraints mapped from database keys and hierarchies.'}
                     </CardDescription>
                   </div>
                   
@@ -560,7 +742,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                             <th className="px-4 py-3">Target</th>
                             <th className="px-4 py-3">Quantifier</th>
                             <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3">Description Logic / Axiom</th>
+                            <th className="px-4 py-3">Association / Rule</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
@@ -610,7 +792,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           )}
 
           {activeTab === 'api_logs' && (
-            <Card className="border-border/50 shadow-md">
+            <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/40">
                 <div>
                   <CardTitle>API Verification Logs</CardTitle>
@@ -717,7 +899,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
 
           {activeTab === 'api' && (
             <div className="space-y-6">
-              <Card className="border-border/50 shadow-md">
+              <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
                 <CardHeader>
                   <CardTitle>API Access</CardTitle>
                   <CardDescription>Generate keys to inject into your LangChain or Autogen agents.</CardDescription>
@@ -726,15 +908,14 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="space-y-2">
                     <Label className="font-semibold text-foreground">Server Endpoint</Label>
                     <div className="flex gap-2">
-                      <Input readOnly value="https://api.ralles.com/v1/verify" className="font-mono text-sm bg-muted/50 border-border/60" />
+                      <Input readOnly value="https://api.ralles.com/v1/verify" className="font-mono text-sm bg-slate-900/80 border-white/10 text-white focus:border-violet-500/50 h-11" />
                       <Button 
-                        variant="secondary"
                         onClick={() => {
                           navigator.clipboard.writeText("https://api.ralles.com/v1/verify")
                           setCopiedEndpoint(true)
                           setTimeout(() => setCopiedEndpoint(false), 2000)
                         }}
-                        className="transition-all"
+                        className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-slate-200 transition-all h-11 px-4"
                       >
                         {copiedEndpoint ? 'Copied!' : 'Copy'}
                       </Button>
@@ -743,7 +924,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <Label className="font-semibold text-foreground">Secret Agent Keys</Label>
-                      <Button onClick={handleGenerateKey} size="sm" className="text-white shadow-sm transition-all">+ Generate New Key</Button>
+                      <Button 
+                        onClick={handleGenerateKey} 
+                        className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-violet-500/10 border border-violet-500/30 hover:-translate-y-0.5 transition-all text-xs px-3.5 py-2"
+                      >
+                        + Generate New Key
+                      </Button>
                     </div>
                     {apiKeys.length === 0 ? (
                       <div className="p-6 text-center rounded-lg border border-dashed border-border/40 bg-muted/20 text-sm text-muted-foreground">
@@ -757,23 +943,21 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                               type={revealedKeys[keyObj.id] ? 'text' : 'password'} 
                               readOnly 
                               value={keyObj.key} 
-                              className="font-mono text-sm bg-muted/50 border-border/60" 
+                              className="font-mono text-sm bg-slate-900/80 border-white/10 text-white focus:border-violet-500/50 h-11" 
                             />
                             <Button 
-                              variant="secondary"
                               onClick={() => setRevealedKeys(prev => ({ ...prev, [keyObj.id]: !prev[keyObj.id] }))}
-                              className="w-20"
+                              className="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 w-20 h-11 font-semibold"
                             >
                               {revealedKeys[keyObj.id] ? 'Hide' : 'Reveal'}
                             </Button>
                             <Button 
-                              variant="outline"
                               onClick={() => {
                                 navigator.clipboard.writeText(keyObj.key)
                                 setCopiedKeyId(keyObj.id)
                                 setTimeout(() => setCopiedKeyId(null), 2000)
                               }}
-                              className="w-20 border-border/60"
+                              className="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 w-20 h-11 font-semibold"
                             >
                               {copiedKeyId === keyObj.id ? 'Copied!' : 'Copy'}
                             </Button>
@@ -785,7 +969,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
                 <CardHeader>
                   <CardTitle>API Documentation: /verify</CardTitle>
                   <CardDescription>Comprehensive guide on integrating the verification engine into your Agent workflows.</CardDescription>
@@ -846,26 +1030,150 @@ export default function ServerDetailsPage({ params }: { params: any }) {
           )}
 
           {activeTab === 'config' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Guardrail Configuration</CardTitle>
-                <CardDescription>Adjust inference strictness and connection limits.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                 <div className="space-y-2">
-                  <Label>Validation Mode</Label>
-                  <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                    <option>Strict (Block all unknown queries)</option>
-                    <option>Lenient (Warn only)</option>
-                    <option disabled>Virtual Fetch (Premium Only)</option>
-                  </select>
-                </div>
-                <Button variant="outline">Force Schema Resync</Button>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
+                <CardHeader>
+                  <CardTitle>Guardrail Configuration</CardTitle>
+                  <CardDescription>Adjust inference strictness and connection limits.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                   <div className="space-y-2">
+                    <Label className="font-semibold">Validation Mode</Label>
+                    <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                      <option>Strict (Block all unknown queries)</option>
+                      <option>Lenient (Warn only)</option>
+                      <option disabled>Virtual Fetch (Premium Only)</option>
+                    </select>
+                  </div>
+                  <Button variant="outline" className="border-border/60 hover:bg-muted/50">Force Schema Resync</Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-violet-500/20 shadow-lg relative overflow-hidden bg-slate-950/60 backdrop-blur-md">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500"></div>
+                <CardHeader>
+                  <CardTitle>Custom LLM Provider</CardTitle>
+                  <CardDescription>
+                    Configure a custom OpenAI or Gemini API key to power all natural-language parsing, policy extraction, and compliance guardrails.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSaveLLMConfig} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="llm-provider" className="font-semibold">LLM Provider</Label>
+                      <select 
+                        id="llm-provider"
+                        value={llmProvider}
+                        onChange={(e: any) => setLlmProvider(e.target.value)}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="gemini">Google Gemini (Default)</option>
+                        <option value="openai">OpenAI (GPT-4o-mini)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="llm-api-key" className="font-semibold">API Key</Label>
+                      <Input
+                        id="llm-api-key"
+                        type="password"
+                        value={llmApiKey}
+                        onChange={(e) => setLlmApiKey(e.target.value)}
+                        placeholder={server?.llm_api_key_configured ? "•••••••• (Key Configured)" : "Enter your provider's API key"}
+                        className="bg-slate-900/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-500/50 focus:ring-violet-500/20 h-11 font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {llmProvider === 'openai' 
+                          ? "Required format: sk-proj-... or sk-..." 
+                          : "Required format: AIzaSy..."}
+                      </p>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      {server?.llm_api_key_configured && (
+                        <div className="text-xs text-green-500 flex items-center gap-1.5 font-medium">
+                          <span>✓ Custom key active:</span>
+                          <span className="bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded font-mono text-[10px]">
+                            {server.llm_api_key_masked}
+                          </span>
+                        </div>
+                      )}
+                      {!server?.llm_api_key_configured && (
+                        <div className="text-xs text-muted-foreground italic">
+                          No custom key configured. Falling back to default system key.
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        {server?.llm_api_key_configured && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={async () => {
+                              if (!confirm('Are you sure you want to clear custom LLM credentials and fall back to system keys?')) return;
+                              setLlmApiKey('');
+                              setIsSavingLLM(true);
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (!session) return;
+                                const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}/llm_config`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session.access_token}`
+                                  },
+                                  body: JSON.stringify({
+                                    llm_provider: 'gemini',
+                                    llm_api_key: ''
+                                  })
+                                });
+                                if (!res.ok) throw new Error('Failed to clear credentials');
+                                setServer((prev: any) => ({
+                                  ...prev,
+                                  llm_provider: 'gemini',
+                                  llm_api_key_configured: false,
+                                  llm_api_key_masked: ''
+                                }));
+                                setLlmProvider('gemini');
+                                alert('Credentials cleared successfully.');
+                              } catch (err: any) {
+                                alert(err.message || 'Failed to clear credentials');
+                              } finally {
+                                setIsSavingLLM(false);
+                              }
+                            }}
+                            className="border-red-500/20 text-red-500 hover:bg-red-500/10 text-xs"
+                            disabled={isSavingLLM}
+                          >
+                            Clear Credentials
+                          </Button>
+                        )}
+                        <Button 
+                          type="submit" 
+                          disabled={isSavingLLM || (!llmApiKey && !server?.llm_api_key_configured)}
+                          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-violet-500/10 border border-violet-500/30 hover:-translate-y-0.5 transition-all text-xs px-4 py-2"
+                        >
+                          {isSavingLLM ? 'Saving...' : 'Save Configuration'}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Association Graph Dialog */}
+      <KnowledgeGraphDialog
+        isOpen={graphDialogOpen}
+        onClose={() => setGraphDialogOpen(false)}
+        concepts={concepts}
+        rules={rules}
+        serverName={server?.name || 'Server'}
+        serverId={id}
+      />
     </div>
   )
 }

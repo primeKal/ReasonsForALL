@@ -16,22 +16,28 @@ router = APIRouter(
 # Mocked API Key storage for demo purposes
 MOCK_API_KEYS = []
 
+
 class APIKeyResponse(BaseModel):
     id: str
     key: str
     created_at: str
 
+
 def _ensure_rules_loaded(server: dict) -> None:
     """Hydrates server['rules'] and other attributes from Supabase if empty."""
     if (not server.get("rules") or not server.get("example_statement")) and server.get("server_config_id"):
         try:
-            db_servers = supabase_client.get_servers_for_tenant(server["tenant_id"])
-            matching_server = next((s for s in db_servers if s["id"] == server["server_config_id"]), None)
+            db_servers = supabase_client.get_servers_for_tenant(
+                server["tenant_id"])
+            matching_server = next(
+                (s for s in db_servers if s["id"] == server["server_config_id"]), None)
             if matching_server:
-                server["example_statement"] = matching_server.get("example_statement", "")
+                server["example_statement"] = matching_server.get(
+                    "example_statement", "")
 
             if not server.get("rules"):
-                db_quads = supabase_client.get_quads_for_server(server["tenant_id"], server["server_config_id"])
+                db_quads = supabase_client.get_quads_for_server(
+                    server["tenant_id"], server["server_config_id"])
                 server["rules"] = [
                     {
                         "subject": q["subject"],
@@ -44,9 +50,11 @@ def _ensure_rules_loaded(server: dict) -> None:
                     }
                     for q in db_quads
                 ]
-            logger.info(f"Loaded server rules & statement from Supabase for server {server.get('server_config_id')}")
+            logger.info(
+                f"Loaded server rules & statement from Supabase for server {server.get('server_config_id')}")
         except Exception as e:
-            logger.error(f"Failed to fetch quads/metadata from Supabase for server {server.get('server_config_id')}: {e}")
+            logger.error(
+                f"Failed to fetch quads/metadata from Supabase for server {server.get('server_config_id')}: {e}")
 
 
 def _get_or_hydrate_server(server_id: str) -> dict:
@@ -55,7 +63,8 @@ def _get_or_hydrate_server(server_id: str) -> dict:
     if not server:
         # Try finding in Supabase globally
         try:
-            db_server = supabase_client.get_server_config_by_key_global(server_id)
+            db_server = supabase_client.get_server_config_by_key_global(
+                server_id)
             if db_server:
                 server = {
                     "name": db_server["name"],
@@ -65,15 +74,32 @@ def _get_or_hydrate_server(server_id: str) -> dict:
                     "tenant_id": db_server["tenant_id"],
                     "server_config_id": db_server["id"],
                     "example_statement": db_server.get("example_statement", ""),
+                    "llm_provider": db_server.get("llm_provider", "gemini"),
+                    "llm_api_key": db_server.get("llm_api_key", ""),
                 }
                 ACTIVE_SERVERS[server_id] = server
-                logger.info(f"Dynamically hydrated server '{server_id}' cache from Supabase")
+                logger.info(
+                    f"Dynamically hydrated server '{server_id}' cache from Supabase")
         except Exception as e:
-            logger.error(f"Failed to dynamically hydrate server '{server_id}' from Supabase: {e}")
-            
+            logger.error(
+                f"Failed to dynamically hydrate server '{server_id}' from Supabase: {e}")
+
     if not server:
         raise HTTPException(status_code=404, detail="Server not found")
-        
+
+    # Double check that LLM settings are hydrated in cache
+    if "llm_provider" not in server or "llm_api_key" not in server:
+        try:
+            db_server = supabase_client.get_server_config_by_key_global(
+                server_id)
+            if db_server:
+                server["llm_provider"] = db_server.get(
+                    "llm_provider", "gemini")
+                server["llm_api_key"] = db_server.get("llm_api_key", "")
+        except Exception as e:
+            logger.warning(
+                f"Could not hydrate LLM settings for server {server_id}: {e}")
+
     _ensure_rules_loaded(server)
     return server
 
@@ -85,6 +111,15 @@ def get_server_overview(server_id: str):
     """
     server = _get_or_hydrate_server(server_id)
 
+    llm_key = server.get("llm_api_key", "")
+    llm_configured = bool(llm_key)
+    llm_masked = ""
+    if llm_configured:
+        if len(llm_key) > 10:
+            llm_masked = f"{llm_key[:7]}...{llm_key[-4:]}"
+        else:
+            llm_masked = "••••••••"
+
     return {
         "server_id": server_id,
         "name": server["name"],
@@ -93,8 +128,50 @@ def get_server_overview(server_id: str):
         "active_policies_limit": 1000,
         "avg_inference_time_ms": 3.2,
         "recent_blocks": 12,
-        "example_statement": server.get("example_statement", "A Waiter is a subclass of Employee. Waiters are disjoint from Buyers.")
+        "example_statement": server.get("example_statement", "A Waiter is a subclass of Employee. Waiters are disjoint from Buyers."),
+        "llm_provider": server.get("llm_provider", "gemini"),
+        "llm_api_key_configured": llm_configured,
+        "llm_api_key_masked": llm_masked
     }
+
+
+class LLMConfigRequest(BaseModel):
+    llm_provider: str
+    llm_api_key: str | None = None
+
+
+@router.post("/{server_id}/llm_config")
+def update_llm_config(server_id: str, request: LLMConfigRequest):
+    """
+    Saves the custom LLM configuration (provider and API key) to the DB and updates cache.
+    """
+    server = _get_or_hydrate_server(server_id)
+    tenant_id = server["tenant_id"]
+
+    # If client sent the masked key placeholder, retain the existing key
+    api_key = request.llm_api_key
+    if api_key and ("..." in api_key or "•••" in api_key or "••••" in api_key):
+        api_key = server.get("llm_api_key")
+
+    # Save key to database
+    try:
+        supabase_client.update_server_llm_config(
+            tenant_id=tenant_id,
+            server_key=server_id,
+            llm_provider=request.llm_provider,
+            llm_api_key=api_key
+        )
+    except Exception as e:
+        logger.error(f"Failed to update custom LLM config in Supabase: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Database update failed: {str(e)}")
+
+    # Update active server cache
+    server["llm_provider"] = request.llm_provider
+    server["llm_api_key"] = api_key
+
+    return {"status": "success"}
+
 
 @router.delete("/{server_id}")
 def delete_server(server_id: str):
@@ -104,19 +181,22 @@ def delete_server(server_id: str):
     """
     server = _get_or_hydrate_server(server_id)
     tenant_id = server.get("tenant_id", "")
-    
+
     if server_id in ACTIVE_SERVERS:
         del ACTIVE_SERVERS[server_id]
 
     # Delete from Supabase (cascades quads via FK)
     if tenant_id:
         try:
-            supabase_client.delete_server_config(tenant_id=tenant_id, server_key=server_id)
-            logger.info(f"Server '{server_id}' deleted from tenant_configurations (quads cascade-deleted)")
+            supabase_client.delete_server_config(
+                tenant_id=tenant_id, server_key=server_id)
+            logger.info(
+                f"Server '{server_id}' deleted from tenant_configurations (quads cascade-deleted)")
         except Exception as e:
             logger.error(f"Failed to delete server from Supabase: {e}")
 
     return {"status": "deleted"}
+
 
 @router.get("/{server_id}/concepts")
 def get_server_concepts(server_id: str):
@@ -126,12 +206,14 @@ def get_server_concepts(server_id: str):
     server = _get_or_hydrate_server(server_id)
 
     # Extract unique business entities (classes) from the rules
-    entities = list(set([r["subject"] for r in server["rules"] if r.get("type") == "ClassDefinition" or r.get("type") == "ObjectProperty"]))
-    
+    entities = list(set([r["subject"] for r in server["rules"] if r.get(
+        "type") == "ClassDefinition" or r.get("type") == "ObjectProperty"]))
+
     return {
         "server_id": server_id,
         "entities": [{"name": e, "status": "Mapped"} for e in entities]
     }
+
 
 @router.get("/{server_id}/rules")
 def get_server_rules(server_id: str):
@@ -142,8 +224,10 @@ def get_server_rules(server_id: str):
 
     return {
         "server_id": server_id,
-        "rules": [r for r in server["rules"] if r.get("type") != "ClassDefinition"] # Filter out plain class definitions
+        # Filter out plain class definitions
+        "rules": [r for r in server["rules"] if r.get("type") != "ClassDefinition"]
     }
+
 
 @router.get("/{server_id}/text_policies")
 def get_server_text_policies(server_id: str):
@@ -169,8 +253,10 @@ def get_server_text_policies(server_id: str):
             ]
         }
     except Exception as e:
-        logger.error(f"Failed to fetch text policies for server {server_id}: {e}")
+        logger.error(
+            f"Failed to fetch text policies for server {server_id}: {e}")
         return {"server_id": server_id, "policies": []}
+
 
 @router.get("/{server_id}/api_logs")
 def get_server_api_logs(server_id: str):
@@ -201,16 +287,18 @@ def get_server_api_logs(server_id: str):
         logger.error(f"Failed to fetch API logs for server {server_id}: {e}")
         return {"server_id": server_id, "logs": []}
 
+
 @router.get("/{server_id}/api_keys", response_model=List[APIKeyResponse])
 def list_api_keys(server_id: str):
     """
     Lists all API keys generated for the server to be used by autonomous agents.
     """
     server = _get_or_hydrate_server(server_id)
-    
+
     if "api_keys" not in server:
         server["api_keys"] = []
     return server["api_keys"]
+
 
 @router.post("/{server_id}/api_keys", response_model=APIKeyResponse)
 def generate_api_key(server_id: str):
@@ -218,10 +306,10 @@ def generate_api_key(server_id: str):
     Generates a new secure API key for agent injection.
     """
     server = _get_or_hydrate_server(server_id)
-        
+
     if "api_keys" not in server:
         server["api_keys"] = []
-        
+
     new_key = {
         "id": secrets.token_hex(4),
         "key": f"sk-rfa-{secrets.token_hex(16)}",
@@ -234,6 +322,7 @@ def generate_api_key(server_id: str):
 class ChatMessageRequest(BaseModel):
     message: str
     reasoning_mode: str = "text"  # "text" (default) | "logical" (beta)
+
 
 @router.post("/{server_id}/chat")
 def server_chat(server_id: str, request: ChatMessageRequest):
@@ -252,7 +341,8 @@ def server_chat(server_id: str, request: ChatMessageRequest):
 
     # ── Fetch quads (needed by both modes for context) ──────────────────────
     try:
-        db_quads = supabase_client.get_quads_for_server(server["tenant_id"], server["server_config_id"])
+        db_quads = supabase_client.get_quads_for_server(
+            server["tenant_id"], server["server_config_id"])
         quads = [
             {
                 "subject": q["subject"],
@@ -266,13 +356,17 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             for q in db_quads
         ]
         server["rules"] = quads
-        logger.info(f"[Step 2] Fetched {len(quads)} schema quads from Supabase.")
+        logger.info(
+            f"[Step 2] Fetched {len(quads)} schema quads from Supabase.")
     except Exception as e:
         logger.warning(f"[Step 2] Failed to fetch quads: {e}. Using cached.")
         quads = server.get("rules", [])
 
     from app.services.gemini_service import GeminiService
-    gemini_svc = GeminiService()
+    gemini_svc = GeminiService(
+        api_key=server.get("llm_api_key"),
+        provider=server.get("llm_provider")
+    )
 
     # ════════════════════════════════════════════════════════════════════════
     # TEXT MODE (default) — LLM policy comparison
@@ -283,12 +377,15 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             raw_policies = supabase_client.get_text_policies_for_server(
                 server["tenant_id"], server["server_config_id"]
             )
-            policies = [{"title": p["title"], "body": p["body"], "source_type": p.get("source_type", "inferred")} for p in raw_policies]
+            policies = [{"title": p["title"], "body": p["body"], "source_type": p.get(
+                "source_type", "inferred")} for p in raw_policies]
         except Exception as e:
-            logger.warning(f"[Step 3] Failed to fetch text policies: {e}. Using empty list.")
+            logger.warning(
+                f"[Step 3] Failed to fetch text policies: {e}. Using empty list.")
             policies = []
 
-        logger.info(f"[Step 3] Loaded {len(policies)} text policies. Calling LLM judge...")
+        logger.info(
+            f"[Step 3] Loaded {len(policies)} text policies. Calling LLM judge...")
         result = gemini_svc.analyze_with_text_policies(
             user_query=request.message,
             policies=policies,
@@ -303,25 +400,52 @@ def server_chat(server_id: str, request: ChatMessageRequest):
         supporting = result.get("supporting_policies", [])
         steps = result.get("analysis_steps", [])
 
-        logger.info(f"[Step 4] Text verdict: {verdict} | confidence: {confidence}")
+        logger.info(
+            f"[Step 4] Text verdict: {verdict} | confidence: {confidence}")
 
         # Verdict → is_valid mapping
-        is_valid = (is_allowed is True) or (verdict in ("allowed", "conditional"))
+        is_valid = (is_allowed is True) or (
+            verdict in ("allowed", "conditional"))
+
+        # Trigger email alert for blocked risky requests (LLM judge)
+        if not is_valid:
+            try:
+                user_id = server["tenant_id"].replace("tenant_", "")
+                profile = supabase_client.get_profile_by_id(user_id)
+                if profile:
+                    from app.services.email_service import send_risky_request_alert
+                    send_risky_request_alert(
+                        recipient_email=profile["email"],
+                        name=profile.get("full_name", "Admin"),
+                        server_name=server["name"],
+                        query=request.message,
+                        verdict=verdict,
+                        summary=summary,
+                        violations=violated
+                    )
+            except Exception as email_err:
+                logger.warning(
+                    f"Failed to send risky request email alert: {email_err}")
 
         violated_text = ""
         if violated:
-            violated_text = "\n**Violated Policies:**\n" + "\n".join(f"- ❌ {v}" for v in violated) + "\n"
+            violated_text = "\n**Violated Policies:**\n" + \
+                "\n".join(f"- ❌ {v}" for v in violated) + "\n"
         supporting_text = ""
         if supporting:
-            supporting_text = "\n**Supporting Policies:**\n" + "\n".join(f"- ✅ {v}" for v in supporting) + "\n"
+            supporting_text = "\n**Supporting Policies:**\n" + \
+                "\n".join(f"- ✅ {v}" for v in supporting) + "\n"
         steps_text = ""
         if steps:
-            steps_text = "\n**Analysis Steps:**\n" + "\n".join(f"{i+1}. {s}" for i, s in enumerate(steps)) + "\n"
+            steps_text = "\n**Analysis Steps:**\n" + \
+                "\n".join(f"{i+1}. {s}" for i, s in enumerate(steps)) + "\n"
         policies_text = ""
         if policies:
-            policies_text = "\n**Active Business Policies Checked:** " + str(len(policies)) + "\n"
+            policies_text = "\n**Active Business Policies Checked:** " + \
+                str(len(policies)) + "\n"
 
-        verdict_emoji = {"allowed": "✅", "blocked": "🚫", "conditional": "⚠️", "unclear": "❓"}.get(verdict, "❓")
+        verdict_emoji = {"allowed": "✅", "blocked": "🚫",
+                         "conditional": "⚠️", "unclear": "❓"}.get(verdict, "❓")
         confidence_pct = f"{int(confidence * 100)}%"
 
         explanation = (
@@ -359,13 +483,16 @@ def server_chat(server_id: str, request: ChatMessageRequest):
     # LOGICAL MODE (beta) — owlready2 Description Logic reasoning
     # ════════════════════════════════════════════════════════════════════════
     logger.info("[Step 3] Mode: LOGICAL (beta) — NLU parsing with Gemini...")
-    parsed_ai = gemini_svc.ask_logical_statement(statement=request.message, quads=quads)
+    parsed_ai = gemini_svc.ask_logical_statement(
+        statement=request.message, quads=quads)
 
     payload = parsed_ai.get("payload", {})
-    extracted_logic_summary = parsed_ai.get("extracted_logic_summary", "Extraction completed.")
+    extracted_logic_summary = parsed_ai.get(
+        "extracted_logic_summary", "Extraction completed.")
     logical_assertions = parsed_ai.get("logical_assertions", [])
 
-    logger.info(f"[Step 4] NLU: subject='{payload.get('subject_class') if isinstance(payload, dict) else '?'}', assertions={logical_assertions}")
+    logger.info(
+        f"[Step 4] NLU: subject='{payload.get('subject_class') if isinstance(payload, dict) else '?'}', assertions={logical_assertions}")
 
     if not (isinstance(payload, dict) and "expression_tree" in payload):
         nlu_ok = parsed_ai.get("nlu_ok", True)
@@ -381,7 +508,8 @@ def server_chat(server_id: str, request: ChatMessageRequest):
     from app.services.ontology_engine import OntologyEngine
     engine = OntologyEngine(tenant_id=server["tenant_id"])
     logger.info("[Step 5] Running owlready2 DL reasoning...")
-    validation_result = engine.validate_payload(agent_intent="other", payload_data=payload, quads=quads)
+    validation_result = engine.validate_payload(
+        agent_intent="other", payload_data=payload, quads=quads)
 
     is_valid = validation_result["is_valid"]
     violations = validation_result["violations"]
@@ -390,11 +518,15 @@ def server_chat(server_id: str, request: ChatMessageRequest):
     tbox_list = validation_result.get("connecting_tbox", [])
     transitions_list = validation_result.get("owl_inference_transitions", [])
 
-    logger.info(f"[Step 6] DL Verdict: {'SATISFIABLE' if is_valid else 'UNSATISFIABLE'} in {inference_time}ms")
+    logger.info(
+        f"[Step 6] DL Verdict: {'SATISFIABLE' if is_valid else 'UNSATISFIABLE'} in {inference_time}ms")
 
-    tbox_text = ("\n**Loaded TBox Axioms:**\n" + "\n".join(f"- `{t}`" for t in tbox_list) + "\n") if tbox_list else ""
-    transitions_text = ("\n**Ralles Inference Trace:**\n" + "\n".join(f"{i+1}. {t}" for i, t in enumerate(transitions_list)) + "\n") if transitions_list else ""
-    assertions_text = ("\n**Extracted Logical Assertions:**\n" + "\n".join(f"- `{a}`" for a in logical_assertions) + "\n") if logical_assertions else ""
+    tbox_text = ("\n**Loaded TBox Axioms:**\n" +
+                 "\n".join(f"- `{t}`" for t in tbox_list) + "\n") if tbox_list else ""
+    transitions_text = ("\n**Ralles Inference Trace:**\n" + "\n".join(
+        f"{i+1}. {t}" for i, t in enumerate(transitions_list)) + "\n") if transitions_list else ""
+    assertions_text = ("\n**Extracted Logical Assertions:**\n" + "\n".join(
+        f"- `{a}`" for a in logical_assertions) + "\n") if logical_assertions else ""
     dl_block = f"\n**DL Formula:** `{generated_dl}`\n" if generated_dl else ""
 
     explanation = (
@@ -402,7 +534,8 @@ def server_chat(server_id: str, request: ChatMessageRequest):
         f"### 💬 1. User Query\n> \"{request.message}\"\n\n"
         f"### 📝 2. NLU Translation\n*{extracted_logic_summary}*\n{assertions_text}\n"
         f"### ⚙️ 3. Ralles DL Inference Engine\n- Inference time: **{inference_time}ms**\n{dl_block}\n{tbox_text}\n{transitions_text}\n"
-        f"### 🎯 4. Verdict\n{'✓ Consistent & Allowed.' if is_valid else '✗ Contradictory & Blocked.'}"
+        f"### 🎯 4. Verdict\n"
+        f"{'✓ Consistent & Allowed. (Note: Under Open World Assumption (OWA), a statement is permitted only if it is a tautology, meaning it is logically entailed by the ontology constraints).' if is_valid else '✗ Contradictory & Blocked.'}"
     )
 
     return {
@@ -426,4 +559,3 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             "policies_checked": len(quads),
         }
     }
-
