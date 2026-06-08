@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +41,11 @@ export default function LoginPage() {
 
         router.push('/dashboard/servers')
       } else {
+        if (!agreeToTerms) {
+          setError('You must agree to the Terms of Service and Privacy Policy to create an account.')
+          setLoading(false)
+          return
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -294,6 +300,24 @@ export default function LoginPage() {
                     isLogin ? 'Sign In' : 'Create Account'
                   )}
                 </button>
+                {/* Terms checkbox - shown only on signup */}
+                {!isLogin && (
+                  <div className="flex items-start gap-2 mt-3 text-xs text-slate-400">
+                    <input
+                      id="agree"
+                      type="checkbox"
+                      checked={agreeToTerms}
+                      onChange={(e) => setAgreeToTerms(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-white/10 bg-slate-900/80 text-violet-500 focus:ring-violet-400"
+                    />
+                    <label htmlFor="agree" className="leading-tight">
+                      I agree to the{' '}
+                      <Link href="/terms" className="text-violet-400 hover:text-violet-300 font-semibold">Terms of Service</Link>{' '}
+                      and{' '}
+                      <Link href="/privacy" className="text-violet-400 hover:text-violet-300 font-semibold">Privacy Policy</Link>.
+                    </label>
+                  </div>
+                )}
               </form>
 
               {/* Switch mode */}
