@@ -265,7 +265,7 @@ export default function KnowledgeGraphDialog({
             demoRfInstanceRef.current?.fitView?.({ padding: 0.12 });
           } catch (e) {}
         });
-        ro.observe(containerRef.current);
+        ro?.observe(containerRef.current);
       }
     } catch (e) {}
 
