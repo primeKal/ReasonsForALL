@@ -370,37 +370,74 @@ class GeminiService:
             logger.warning(
                 "[PolicyExtract] No API key — using table-name fallback.")
             return self._infer_policies_from_tables(table_names)
+        # Sanitize SQL artifacts to avoid leaking secrets or large literals to the LLM
+        def _sanitize_sql(snippet: str) -> str:
+            if not snippet:
+                return ""
+            # Redact string literals and potential secrets (emails, API keys)
+            import re
+            s = re.sub(r"'[^']*'", "'<redacted>'", snippet)
+            s = re.sub(r'"[^"]*"', '"<redacted>"', s)
+            s = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "<redacted_email>", s)
+            s = re.sub(r"(api[_-]?key|secret|password)\s*=\s*[^\s;]+", "<redacted>", s, flags=re.IGNORECASE)
+            return s
 
-        if triggers or functions:
-            prompt = (
-                "You are a business analyst AI. Given SQL triggers, functions, and database schema, "
-                "synthesize clear natural-language business rules that describe who can do what, "
-                "what actions can be performed, and under what conditions (e.g., authorization, user role "
-                "capabilities, action limits, and permissions).\n\n"
-                f"Tables: {json.dumps(table_names)}\n"
-                f"Triggers:\n{json.dumps(triggers, indent=2)}\n"
-                f"Functions:\n{json.dumps(functions, indent=2)}\n"
-                f"Schema Metadata: {json.dumps(schema_metadata) if schema_metadata else 'None'}\n\n"
-                "Return a JSON array only (no markdown):\n"
-                "[{\"title\": \"<short name>\", \"body\": \"<1-3 sentence rule focusing on who can do what and what can be done>\", \"source_type\": \"trigger|function|inferred\"}]"
-            )
-        else:
-            prompt = (
-                "You are a business analyst AI. Given the database schema tables, columns, and foreign keys, "
-                "synthesize clear natural-language business rules that describe who can do what, "
-                "what actions can be performed, and under what conditions (e.g., authorization, user role "
-                "capabilities, action limits, and permissions) in this domain.\n\n"
-                f"Schema Metadata:\n{json.dumps(schema_metadata if schema_metadata else table_names, indent=2)}\n\n"
-                "Return a JSON array only (no markdown):\n"
-                "[{\"title\": \"<short name>\", \"body\": \"<1-3 sentence rule focusing on who can do what and what can be done>\", \"source_type\": \"inferred\"}]"
-            )
+        safe_triggers = [ _sanitize_sql(t) for t in (triggers or []) ]
+        safe_functions = [ _sanitize_sql(f) for f in (functions or []) ]
+
+        # Non-hallucination guard for LLM: explicit instruction to only use given artifacts
+        non_hallucination_instructions = (
+            "IMPORTANT: Do NOT invent table, column, or role names. Only infer rules grounded in the provided schema, "
+            "triggers, and functions. If the evidence is insufficient to assert a business rule, return an empty array. "
+            "Return strictly machine-parseable JSON array and nothing else."
+        )
+
+        schema_block = json.dumps(schema_metadata if schema_metadata else table_names, indent=2)
+        prompt = (
+            "You are a cautious business analyst AI. Given sanitized SQL triggers, functions, and database schema, "
+            "safely synthesize concise natural-language business rules that describe who can do what and under what conditions.\n\n"
+            f"Tables/Schema:\n{schema_block}\n\n"
+            f"Sanitized Triggers:\n{json.dumps(safe_triggers, indent=2)}\n\n"
+            f"Sanitized Functions:\n{json.dumps(safe_functions, indent=2)}\n\n"
+            f"{non_hallucination_instructions}\n\n"
+            "Return a JSON array only (no markdown). Each item must be an object with keys: 'title', 'body', 'source_type' (trigger|function|inferred).\n"
+        )
 
         try:
             text_response = self._call_llm(prompt, json_mode=True)
-            policies = json.loads(text_response)
-            logger.info(
-                f"[PolicyExtract] Extracted {len(policies)} text policies focusing on business rules.")
-            return policies if isinstance(policies, list) else []
+            parsed = json.loads(text_response)
+
+            # Validate output schema
+            valid_policies = []
+            allowed_sources = {"trigger", "function", "inferred"}
+            for idx, p in enumerate(parsed if isinstance(parsed, list) else []):
+                if not isinstance(p, dict):
+                    logger.warning(f"[PolicyExtract] Dropping non-object policy at index {idx}")
+                    continue
+                title = p.get("title")
+                body = p.get("body")
+                src = p.get("source_type", "inferred")
+                if not title or not body:
+                    logger.warning(f"[PolicyExtract] Dropping invalid policy (missing title/body) at index {idx}")
+                    continue
+                if src not in allowed_sources:
+                    logger.warning(f"[PolicyExtract] Normalizing source_type '{src}' to 'inferred' at index {idx}")
+                    src = "inferred"
+
+                # Grounding check: ensure referenced table names exist in provided table_names
+                lower_tables = {t.lower() for t in table_names}
+                import re
+                refs = set(re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", body))
+                referenced_tables = {r for r in refs if r.lower() in lower_tables}
+                if referenced_tables:
+                    # OK: at least some references are grounded. Keep policy.
+                    valid_policies.append({"title": title.strip(), "body": body.strip(), "source_type": src})
+                else:
+                    # No grounding found — treat with suspicion
+                    logger.warning(f"[PolicyExtract] Policy at index {idx} does not reference known tables; dropping to avoid hallucination.")
+
+            logger.info(f"[PolicyExtract] Extracted {len(valid_policies)} validated text policies focusing on business rules.")
+            return valid_policies if valid_policies else self._infer_policies_from_tables(table_names)
         except Exception as e:
             logger.error(f"[PolicyExtract] Extraction failed: {e}")
             return self._infer_policies_from_tables(table_names)
