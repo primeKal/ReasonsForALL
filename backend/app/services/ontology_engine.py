@@ -387,9 +387,17 @@ class OntologyEngine:
                         except Exception as re:
                             logger.error(f"[OntologyEngine] DL Reasoner execution failed: {re}")
                             is_valid = False
-                            violations.append(
-                                f"Logical Inference Failed: Reasoner error: {re}. Please check active ontology rules."
-                            )
+                            # Detect missing Java executable which is a common cause when
+                            # owlready2 tries to run HermiT/Pellet via JVM.
+                            if isinstance(re, FileNotFoundError) or "No such file or directory" in str(re):
+                                violations.append(
+                                    "Logical Inference Failed: Java runtime not found on the host (java executable missing). "
+                                    "Install a JRE/JDK (e.g. OpenJDK) and ensure `java` is on PATH, or disable DL reasoning in configuration."
+                                )
+                            else:
+                                violations.append(
+                                    f"Logical Inference Failed: Reasoner error: {re}. Please check active ontology rules."
+                                )
                     
         # Extract connecting TBox rules
         connecting_tbox = []
