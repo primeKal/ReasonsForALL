@@ -104,10 +104,25 @@ class DBExtractor:
             from app.services.extraction_agent import MultiAgentOntologySystem
             agent_system = MultiAgentOntologySystem()
             agent_result = agent_system.extract_enriched_ontology(
-                schema_metadata, repo_url=repo_url)
+                schema_metadata, repo_url=repo_url, concept_cap=100, rules_cap=100, subsumption_cap=100)
+
+            # If any agents truncated results, include a hint in the result message
+            trunc = agent_result.get("truncation", {})
+            trunc_msgs = []
+            if trunc.get("concepts_truncated"):
+                trunc_msgs.append("concept extraction truncated to 100 items")
+            if trunc.get("rules_truncated"):
+                trunc_msgs.append("rule extraction truncated to 100 items")
+            if trunc.get("subsumptions_truncated"):
+                trunc_msgs.append(
+                    "subsumption extraction truncated to 100 items")
+            trunc_message = ", ".join(trunc_msgs) if trunc_msgs else None
 
             rules = agent_result["rules"]
             example_statement = agent_result["example_logic_statement"]
+            if trunc_message:
+                example_statement = (
+                    example_statement or "") + f"\nNote: {trunc_message}. Submit a request via Dashboard → Requests or Contact us for bulk extraction."
 
             # Enforce rule capping
             if len(rules) > rule_cap:

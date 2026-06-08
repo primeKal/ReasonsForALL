@@ -37,4 +37,8 @@ class ConceptAgent:
             concepts.append(concept_quad)
             
         logger.info(f"ConceptAgent: Identified {len(concepts)} ontology concepts.")
+        # Enforce a safe default cap of 100 concepts to avoid overwhelming downstream systems
+        if len(concepts) > 100:
+            logger.warning(f"ConceptAgent: Truncating concepts list from {len(concepts)} to 100.")
+            return concepts[:100]
         return concepts

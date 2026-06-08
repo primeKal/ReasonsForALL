@@ -46,6 +46,8 @@ export default function DashboardLayout({
   const navLinks = [
     { href: "/dashboard/servers", label: "Servers", icon: "🗄️" },
     { href: "/dashboard/docs", label: "Docs", icon: "📖" },
+    { href: "/dashboard/contact", label: "Contact", icon: "✉️" },
+    { href: "/dashboard/requests", label: "Requests", icon: "📬" },
   ];
 
   const isActive = (href: string) =>

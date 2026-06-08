@@ -21,7 +21,7 @@ class MultiAgentOntologySystem:
         self.rules_agent = RulesAgent(self.gemini_service)
         self.subsumption_agent = SubsumptionAgent(self.gemini_service)
 
-    def extract_enriched_ontology(self, schema_metadata: Dict[str, Any], repo_url: str | None = None) -> Dict[str, Any]:
+    def extract_enriched_ontology(self, schema_metadata: Dict[str, Any], repo_url: str | None = None, concept_cap: int = 100, rules_cap: int = 100, subsumption_cap: int = 100) -> Dict[str, Any]:
         """
         Coordinates the Concept, Rules, and Subsumption agents to extract, 
         map, and quantify a complete relational database ontology schema.
@@ -30,13 +30,25 @@ class MultiAgentOntologySystem:
 
         # Step 1: Concept Agent maps database tables to classes
         concepts = self.concept_agent.extract_concepts(schema_metadata)
+        concept_truncated = False
+        if len(concepts) > concept_cap:
+            concept_truncated = True
+            concepts = concepts[:concept_cap]
 
         # Step 2: Rules Agent maps foreign keys, cardinality, and quantifiers
         relationship_rules = self.rules_agent.extract_rules(schema_metadata)
+        rules_truncated = False
+        if len(relationship_rules) > rules_cap:
+            rules_truncated = True
+            relationship_rules = relationship_rules[:rules_cap]
 
         # Step 3: Subsumption Agent identifies subclass hierarchies. Provide both concepts and rules and optional repo_url.
         subClassOf_rules = self.subsumption_agent.extract_subsumptions(
             schema_metadata, concepts, relationship_rules, repo_url)
+        subsumption_truncated = False
+        if len(subClassOf_rules) > subsumption_cap:
+            subsumption_truncated = True
+            subClassOf_rules = subClassOf_rules[:subsumption_cap]
 
         # Step 4: Merge all agent outputs
         all_rules = concepts + relationship_rules + subClassOf_rules
@@ -48,7 +60,17 @@ class MultiAgentOntologySystem:
             f"Multi-Agent System completed. Mapped {len(all_rules)} ontological axioms.")
         return {
             "rules": all_rules,
-            "example_logic_statement": example_statement
+            "example_logic_statement": example_statement,
+            "truncation": {
+                "concepts_truncated": concept_truncated,
+                "rules_truncated": rules_truncated,
+                "subsumptions_truncated": subsumption_truncated,
+                "counts": {
+                    "concepts": len(concepts),
+                    "rules": len(relationship_rules),
+                    "subsumptions": len(subClassOf_rules)
+                }
+            }
         }
 
     def _generate_logic_statement(self, rules: List[Dict[str, Any]]) -> str:

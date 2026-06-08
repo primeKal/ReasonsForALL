@@ -106,4 +106,9 @@ class SubsumptionAgent:
 
         logger.info(
             f"SubsumptionAgent: Extracted {len(subsumptions)} subclass relations using local heuristics.")
+        # Cap subsumptions to a reasonable default (100)
+        if len(subsumptions) > 100:
+            logger.warning(
+                f"SubsumptionAgent: Truncating subsumptions from {len(subsumptions)} to 100.")
+            return subsumptions[:100]
         return subsumptions
