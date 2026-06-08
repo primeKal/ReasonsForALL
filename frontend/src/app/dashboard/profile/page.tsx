@@ -246,8 +246,8 @@ export default function ProfilePage() {
                   </div>
                   <p className="text-xs text-slate-400">
                     {isPremium
-                      ? "Unlimited guardrails, high-fidelity neurosymbolic reasoning, and active compliance policies."
-                      : "Free trial active. Connect unlimited servers, 30-day evaluation period."}
+                      ? "Unlimited guardrails, increased limits, and priority support."
+                      : "Free trial active. 7-day free trial period."}
                   </p>
                   {!isPremium && (
                     <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                         <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Loading Checkout...
                       </span>
-                    ) : '⚡ Upgrade to Premium — $49/mo'}
+                    ) : '⚡ Upgrade to Premium — €15/mo'}
                   </button>
                 ) : (
                   <div

@@ -44,18 +44,21 @@ def create_checkout_session(request: CheckoutSessionRequest, tenant_context: dic
             payment_method_types=['card'],
             line_items=[{
                 'price_data': {
-                    'currency': 'usd',
+                    'currency': 'eur',
                     'product_data': {
                         'name': 'Ralles Premium Subscription',
-                        'description': 'Unlimited guardrails, logical reasoning, and active compliance policies.',
+                        'description': 'Premium subscription — increased limits and priority support.',
                     },
-                    'unit_amount': 4900,  # $49.00 / mo
+                    'unit_amount': 1500,  # €15.00 / mo
                     'recurring': {
                         'interval': 'month',
                     },
                 },
                 'quantity': 1,
             }],
+            subscription_data={
+                'trial_period_days': 7,
+            },
             mode='subscription',
             metadata={
                 'tenant_id': tenant_id
