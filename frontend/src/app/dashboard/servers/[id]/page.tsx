@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -36,6 +37,10 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const [llmProvider, setLlmProvider] = useState<'gemini' | 'openai'>('gemini')
   const [llmApiKey, setLlmApiKey] = useState('')
   const [isSavingLLM, setIsSavingLLM] = useState(false)
+  const [customPolicyInput, setCustomPolicyInput] = useState('')
+  const [isAnalyzingPolicy, setIsAnalyzingPolicy] = useState(false)
+  const [customPolicyWarning, setCustomPolicyWarning] = useState<string | null>(null)
+  const [customPolicySuccess, setCustomPolicySuccess] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
@@ -57,7 +62,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
         {
           sender: 'assistant',
           text: isLogical
-            ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal neurosymbolic association inference on your assertions. Under Open World Assumption (OWA), a statement is permitted only if it is strictly entailed by the neurosymbolic association rules.\n\nType a logical statement below (e.g. roles, sub-roles, or relations) to evaluate consistency.`
+            ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal logical association inference on your assertions. Under Open World Assumption (OWA), a statement is permitted only if it is strictly entailed by the logical association rules.\n\nType a logical statement below (e.g. roles, sub-roles, or relations) to evaluate consistency.`
             : `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default). I will compare your queries against natural-language business policies extracted from your database schema.\n\nAsk a policy query below.`,
           example: isLogical
             ? (server.example_statement || "Waiter is-a Employee")
@@ -83,7 +88,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
       {
         sender: 'assistant',
         text: isLogical
-          ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal neurosymbolic association inference on your assertions. Under Open World Assumption (OWA), a statement is permitted only if it is strictly entailed by the neurosymbolic association rules.\n\nType a logical statement below (e.g. roles, sub-roles, or relations) to evaluate consistency.`
+          ? `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Logical Reasoning Mode (Beta)**. I will perform formal logical association inference on your assertions. Under Open World Assumption (OWA), a statement is permitted only if it is strictly entailed by the logical association rules.\n\nType a logical statement below (e.g. roles, sub-roles, or relations) to evaluate consistency.`
           : `Hello! I am **Ralles**, your reasoning assistant for **${server.name}**.\n\nI am running in **Text Policy Mode** (default). I will compare your queries against natural-language business policies extracted from your database schema.\n\nAsk a policy query below.`,
         example: isLogical
           ? (server.example_statement || "Waiter is-a Employee")
@@ -215,6 +220,66 @@ export default function ServerDetailsPage({ params }: { params: any }) {
     })
     
     router.push('/dashboard/servers')
+  }
+
+  const handleAnalyzeCustomPolicies = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!customPolicyInput.trim() || isAnalyzingPolicy) return
+    setIsAnalyzingPolicy(true)
+    setCustomPolicyWarning(null)
+    setCustomPolicySuccess(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}/analyze_custom_policies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ content: customPolicyInput })
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Failed to analyze custom policies.')
+      }
+
+      const data = await res.json()
+      if (data.using_system_key) {
+        setCustomPolicyWarning('⚠️ Warning: You are currently using our system API key. Please configure your own API key under the Configuration tab.')
+      }
+      setCustomPolicySuccess('✓ Custom policies successfully analyzed and synced!')
+      setCustomPolicyInput('')
+      
+      // Reload text policies
+      const policiesRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}/text_policies`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      })
+      if (policiesRes.ok) {
+        const pData = await policiesRes.json()
+        setTextPolicies(pData.policies || [])
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Failed to analyze custom policies.')
+    } finally {
+      setIsAnalyzingPolicy(false)
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setCustomPolicyInput(event.target.result as string)
+      }
+    }
+    reader.readAsText(file)
   }
 
   const handleGenerateKey = async () => {
@@ -397,7 +462,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       </CardTitle>
                       <CardDescription className="mt-1">
                         {reasoningMode === 'text'
-                          ? 'Text Policy Mode — queries are evaluated against extracted business policies using neurosymbolic analysis.'
+                          ? 'Text Policy Mode — queries are evaluated against extracted business policies using logical analysis.'
                           : 'Logical Reasoning Mode (Beta) — formal description-logic inference using Ralles reasoning engine.'}
                       </CardDescription>
                     </div>
@@ -426,14 +491,11 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       </button>
                       <button
                         id="mode-toggle-logical"
-                        onClick={() => setReasoningMode('logical')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                          reasoningMode === 'logical'
-                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                        disabled
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 cursor-not-allowed flex items-center gap-1"
+                        title="Logical reasoning mode is coming soon"
                       >
-                        🧪 Logical <span className="text-[10px] opacity-80">Beta</span>
+                        🧪 Logical reasoning <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Coming Soon</span>
                       </button>
                     </div>
                   </div>
@@ -655,7 +717,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     <CardDescription>
                       {rulesSubTab === 'text'
                         ? 'Natural language business policies extracted from triggers, functions, and database schema.'
-                        : 'Formal neurosymbolic association constraints mapped from database keys and hierarchies.'}
+                        : 'Formal logical association constraints mapped from database keys and hierarchies.'}
                     </CardDescription>
                   </div>
                   
@@ -672,21 +734,82 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       📋 Text Policies ({textPolicies.length})
                     </button>
                     <button
-                      onClick={() => setRulesSubTab('logical')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                        rulesSubTab === 'logical'
-                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
+                      disabled
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 cursor-not-allowed flex items-center gap-1"
+                      title="Logical rules are coming soon"
                     >
-                      🧪 Logical Rules ({rules.length})
+                      🧪 Logical Rules <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Coming Soon</span>
                     </button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
                 {rulesSubTab === 'text' ? (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* Custom Policy Upload & Copy-Paste Section */}
+                    <div className="p-5 rounded-2xl border border-white/5 bg-slate-900/30 space-y-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-white mb-1">✍️ Upload or Import Custom Guardrail Rules</h4>
+                        <p className="text-xs text-slate-400">Copy-paste plain text rules or upload a text file to extract business policies using AI.</p>
+                      </div>
+                      
+                      <form onSubmit={handleAnalyzeCustomPolicies} className="space-y-4">
+                        <div className="space-y-2">
+                          <textarea
+                            value={customPolicyInput}
+                            onChange={(e) => setCustomPolicyInput(e.target.value)}
+                            placeholder="e.g. Waiters can read ratings but cannot update billing tables. Anonymous users must be blocked from write tasks."
+                            className="w-full min-h-[100px] p-3 rounded-lg border border-white/10 bg-slate-950 text-white placeholder:text-slate-600 text-xs focus:ring-1 focus:ring-violet-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <label className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white/5 border border-white/10 text-slate-300 cursor-pointer hover:bg-white/10 transition-all text-center">
+                              📁 Upload Text File
+                              <input
+                                type="file"
+                                accept=".txt,.md,.json"
+                                onChange={handleFileUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            {customPolicyInput && (
+                              <button
+                                type="button"
+                                onClick={() => setCustomPolicyInput('')}
+                                className="text-xs text-red-400 hover:underline px-2"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+
+                          <Button
+                            type="submit"
+                            disabled={isAnalyzingPolicy || !customPolicyInput.trim()}
+                            className="rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2 shadow border border-violet-500/25"
+                          >
+                            {isAnalyzingPolicy ? 'Parsing with AI...' : 'Analyze & Sync Policies with AI'}
+                          </Button>
+                        </div>
+                      </form>
+
+                      {customPolicyWarning && (
+                        <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400 leading-relaxed">
+                          {customPolicyWarning}
+                        </div>
+                      )}
+
+                      {customPolicySuccess && (
+                        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 leading-relaxed">
+                          {customPolicySuccess}
+                        </div>
+                      )}
+                    </div>
+
+                    <Separator className="bg-white/5 my-2" />
+
                     {textPolicies.length === 0 ? (
                       <div className="p-8 text-center text-muted-foreground border border-dashed border-border/45 rounded-xl bg-muted/5">
                         No text-based business policies extracted for this server. 
@@ -780,9 +903,9 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                         </tbody>
                       </table>
                     </div>
-                    {rules.length >= 1000 && (
+                    {rules.length >= 40 && (
                       <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                        <p className="text-sm text-orange-500 font-medium">⚠️ Free Trial Constraint: You have reached the maximum of 1000 active rules. Agents attempting complex multi-table joins will bypass validation.</p>
+                        <p className="text-sm text-orange-500 font-medium">⚠️ Extraction Constraint: You have reached the optimized maximum of 40 active rules/hierarchies. Extremely large databases (like Odoo) are truncated to ensure deterministic parsing performance without rate limits.</p>
                       </div>
                     )}
                   </>
@@ -908,10 +1031,10 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="space-y-2">
                     <Label className="font-semibold text-foreground">Server Endpoint</Label>
                     <div className="flex gap-2">
-                      <Input readOnly value="https://api.ralles.com/v1/verify" className="font-mono text-sm bg-slate-900/80 border-white/10 text-white focus:border-violet-500/50 h-11" />
+                      <Input readOnly value="https://api.ralles.com/reasoning/verify" className="font-mono text-sm bg-slate-900/80 border-white/10 text-white focus:border-violet-500/50 h-11" />
                       <Button 
                         onClick={() => {
-                          navigator.clipboard.writeText("https://api.ralles.com/v1/verify")
+                          navigator.clipboard.writeText("https://api.ralles.com/reasoning/verify")
                           setCopiedEndpoint(true)
                           setTimeout(() => setCopiedEndpoint(false), 2000)
                         }}
@@ -959,7 +1082,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                               }}
                               className="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 w-20 h-11 font-semibold"
                             >
-                              {copiedKeyId === keyObj.id ? 'Copied!' : 'Copy'}
+                                {copiedKeyId === keyObj.id ? 'Copied!' : 'Copy'}
                             </Button>
                           </div>
                         ))}
@@ -971,7 +1094,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
 
               <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
                 <CardHeader>
-                  <CardTitle>API Documentation: /verify</CardTitle>
+                  <CardTitle>API Documentation: /reasoning/verify</CardTitle>
                   <CardDescription>Comprehensive guide on integrating the verification engine into your Agent workflows.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -989,7 +1112,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Endpoint URL</h3>
-                    <div className="bg-muted p-3 rounded-md font-mono text-sm text-primary">POST https://api.ralles.com/v1/verify</div>
+                    <div className="bg-muted p-3 rounded-md font-mono text-sm text-primary">POST https://api.ralles.com/reasoning/verify</div>
                   </div>
 
                   <div>
@@ -1005,11 +1128,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     <pre className="bg-zinc-950 text-zinc-50 p-4 rounded-md font-mono text-sm overflow-x-auto">
 {`{
   "server_id": "${id}",
-  "agent_query": "SELECT * FROM users WHERE role = 'admin'",
-  "context": {
+  "agent_intent": "SELECT * FROM users WHERE role = 'admin'",
+  "payload": {
     "user_id": "123",
     "session_id": "abc"
-  }
+  },
+  "include_details": true
 }`}
                     </pre>
                   </div>
@@ -1018,9 +1142,13 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     <h3 className="text-sm font-semibold mb-2">Response Example</h3>
                     <pre className="bg-zinc-950 text-green-400 p-4 rounded-md font-mono text-sm overflow-x-auto">
 {`{
-  "status": "allowed",
-  "reasoning": "Query complies with active guardrail rules. Access to 'admin' role is permitted for user_id '123'.",
-  "execution_time_ms": 3.2
+  "agent_intent": "SELECT * FROM users WHERE role = 'admin'",
+  "is_valid": false,
+  "violations": ["RoleAdminRequiredPolicy"],
+  "inference_time_ms": 3.2,
+  "message": "Payload validation complete.",
+  "description": "Query blocked due to policy violations: RoleAdminRequiredPolicy.",
+  "recommendation": "Revise transaction joins, ensure authentication contexts are supplied, or verify user role permissions."
 }`}
                     </pre>
                   </div>
@@ -1046,118 +1174,6 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     </select>
                   </div>
                   <Button variant="outline" className="border-border/60 hover:bg-muted/50">Force Schema Resync</Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-violet-500/20 shadow-lg relative overflow-hidden bg-slate-950/60 backdrop-blur-md">
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500"></div>
-                <CardHeader>
-                  <CardTitle>Custom LLM Provider</CardTitle>
-                  <CardDescription>
-                    Configure a custom OpenAI or Gemini API key to power all natural-language parsing, policy extraction, and compliance guardrails.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSaveLLMConfig} className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="llm-provider" className="font-semibold">LLM Provider</Label>
-                      <select 
-                        id="llm-provider"
-                        value={llmProvider}
-                        onChange={(e: any) => setLlmProvider(e.target.value)}
-                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      >
-                        <option value="gemini">Google Gemini (Default)</option>
-                        <option value="openai">OpenAI (GPT-4o-mini)</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="llm-api-key" className="font-semibold">API Key</Label>
-                      <Input
-                        id="llm-api-key"
-                        type="password"
-                        value={llmApiKey}
-                        onChange={(e) => setLlmApiKey(e.target.value)}
-                        placeholder={server?.llm_api_key_configured ? "•••••••• (Key Configured)" : "Enter your provider's API key"}
-                        className="bg-slate-900/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-500/50 focus:ring-violet-500/20 h-11 font-mono"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {llmProvider === 'openai' 
-                          ? "Required format: sk-proj-... or sk-..." 
-                          : "Required format: AIzaSy..."}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-2">
-                      {server?.llm_api_key_configured && (
-                        <div className="text-xs text-green-500 flex items-center gap-1.5 font-medium">
-                          <span>✓ Custom key active:</span>
-                          <span className="bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded font-mono text-[10px]">
-                            {server.llm_api_key_masked}
-                          </span>
-                        </div>
-                      )}
-                      {!server?.llm_api_key_configured && (
-                        <div className="text-xs text-muted-foreground italic">
-                          No custom key configured. Falling back to default system key.
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        {server?.llm_api_key_configured && (
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            onClick={async () => {
-                              if (!confirm('Are you sure you want to clear custom LLM credentials and fall back to system keys?')) return;
-                              setLlmApiKey('');
-                              setIsSavingLLM(true);
-                              try {
-                                const { data: { session } } = await supabase.auth.getSession();
-                                if (!session) return;
-                                const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/server/${id}/llm_config`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${session.access_token}`
-                                  },
-                                  body: JSON.stringify({
-                                    llm_provider: 'gemini',
-                                    llm_api_key: ''
-                                  })
-                                });
-                                if (!res.ok) throw new Error('Failed to clear credentials');
-                                setServer((prev: any) => ({
-                                  ...prev,
-                                  llm_provider: 'gemini',
-                                  llm_api_key_configured: false,
-                                  llm_api_key_masked: ''
-                                }));
-                                setLlmProvider('gemini');
-                                alert('Credentials cleared successfully.');
-                              } catch (err: any) {
-                                alert(err.message || 'Failed to clear credentials');
-                              } finally {
-                                setIsSavingLLM(false);
-                              }
-                            }}
-                            className="border-red-500/20 text-red-500 hover:bg-red-500/10 text-xs"
-                            disabled={isSavingLLM}
-                          >
-                            Clear Credentials
-                          </Button>
-                        )}
-                        <Button 
-                          type="submit" 
-                          disabled={isSavingLLM || (!llmApiKey && !server?.llm_api_key_configured)}
-                          className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold shadow-md shadow-violet-500/10 border border-violet-500/30 hover:-translate-y-0.5 transition-all text-xs px-4 py-2"
-                        >
-                          {isSavingLLM ? 'Saving...' : 'Save Configuration'}
-                        </Button>
-                      </div>
-                    </div>
-                  </form>
                 </CardContent>
               </Card>
             </div>

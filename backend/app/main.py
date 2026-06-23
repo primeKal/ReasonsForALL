@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import tenant, reasoning, server, billing
+from app.routers import tenant, reasoning, server
 import logging
 import os
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+from google.adk.cli.fast_api import get_fast_api_app
 
 # Configure root logger so all app-level INFO/WARNING logs appear in the terminal
 logging.basicConfig(
@@ -13,24 +14,33 @@ logging.basicConfig(
     datefmt="%H:%M:%S"
 )
 
-app = FastAPI(
-    title="Multi-Tenant Guardrail SaaS",
-    description="Advanced rules verification and enforcement API",
-    version="1.0.0.1"
-)
-
 # ALLOWED_ORIGINS env var = comma-separated list of frontend URLs
-# e.g. "https://your-app.vercel.app,https://reasonsforall.com"
 _extra_origins = [o.strip() for o in os.getenv(
     "ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    *_extra_origins,
+]
+
+# Initialize the FastAPI app via the ADK get_fast_api_app function
+# This allows using reasons-for-all directly inside the agents-cli playground,
+# while serving as the primary FastAPI backend.
+app = get_fast_api_app(
+    agents_dir=os.path.dirname(__file__),
+    web=True,
+    allow_origins=origins
+)
+
+app.title = "Multi-Tenant Guardrail SaaS"
+app.description = "Advanced rules verification and enforcement API"
+app.version = "1.0.0.1"
+
+# Add CORSMiddleware specifically for standard endpoints if not fully covered by allow_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        *_extra_origins,
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,7 +61,8 @@ async def _preflight(path_name: str, request: Request):
         "http://127.0.0.1:3000",
         *_extra_origins,
     ]
-    logging.info(f"CORS preflight received for path=/{path_name} origin={origin} allowed_origins={allowed}")
+    logging.info(
+        f"CORS preflight received for path=/{path_name} origin={origin} allowed_origins={allowed}")
 
     # If an origin is present and not allowed, return 204 with no CORS headers
     if origin and origin not in allowed and "*" not in allowed:
@@ -90,7 +101,6 @@ def ping():
 app.include_router(tenant.router)
 app.include_router(reasoning.router)
 app.include_router(server.router)
-app.include_router(billing.router)
 
 
 @app.get("/")

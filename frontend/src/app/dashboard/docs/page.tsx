@@ -43,40 +43,56 @@ export default function DocsPage() {
   }
 
   const codeBlocks = {
-    curl: `curl -X POST https://api.ralles.com/v1/verify \\
+    curl: `curl -X POST https://api.ralles.com/reasoning/verify \\
   -H "Authorization: Bearer sk-rfa-..." \\
   -H "Content-Type: application/json" \\
   -d '{
     "server_id": "srv_db_prod_9012",
-    "agent_query": "SELECT * FROM users WHERE role = \\'admin\\'",
-    "context": {
+    "agent_intent": "SELECT * FROM users WHERE role = \\'admin\\'",
+    "payload": {
       "user_id": "usr_789",
       "session_id": "sess_456"
-    }
+    },
+    "include_details": true
   }'`,
-    langchain: `from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from ralles import RallesGuardrail
+    langchain: `import requests
 
-# Initialize the Ralles logical guardrail
-guardrail = RallesGuardrail(
-    server_id="srv_db_prod_9012",
-    api_key="sk-rfa-..."
+# Set your variables
+SERVER_ID = "srv_db_prod_9012"
+API_KEY = "sk-rfa-..."
+
+# Define your payload
+payload = {
+    "server_id": SERVER_ID,
+    "agent_intent": "SELECT * FROM users WHERE role = 'admin'",
+    "payload": {
+        "user_id": "usr_789",
+        "session_id": "sess_456"
+    },
+    "include_details": True
+}
+
+headers = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
+
+# Request guardrail verification
+response = requests.post(
+    "https://api.ralles.com/reasoning/verify",
+    json=payload,
+    headers=headers
 )
+result = response.json()
 
-# Example query verification
-query = "SELECT * FROM users WHERE role = 'admin'"
-is_allowed, reasoning = guardrail.verify(
-    query=query,
-    context={"user_id": "usr_789"}
-)
-
-if is_allowed:
-    # Proceed to execute query safely
-    print(f"Success: {reasoning}")
+if result.get("is_valid"):
+    print("Success: Query complies with policies.")
 else:
-    # Intercept agent action
-    raise PermissionError(f"Guardrail Blocked Action: {reasoning}")`
+    description = result.get("description")
+    recommendation = result.get("recommendation")
+    raise PermissionError(
+        f"Guardrail Blocked: {description}\\nRecommendation: {recommendation}"
+    )`
   }
 
   return (
@@ -130,7 +146,7 @@ else:
           >
             <h2 className="text-2xl font-bold text-white">Introduction</h2>
             <p className="text-slate-400 leading-relaxed">
-              Ralles provides an intelligent reasoning firewall for autonomous AI agents that interact with structured databases. By converting your database schema and foreign key constraints into a <span className="text-violet-400 font-semibold">neurosymbolic association graph</span>, Ralles allows you to enforce strict guardrail rules that prevent agents from performing unsafe joins, unauthorized data mutation, or exposing sensitive database objects.
+              Ralles provides an intelligent reasoning firewall for autonomous AI agents that interact with structured databases. By converting your database schema and constraints into dynamic business rules and policies using LLMs, Ralles allows you to enforce strict guardrail rules that prevent agents from performing unsafe joins, unauthorized data mutation, or exposing sensitive database objects.
             </p>
             <div
               className="p-4 rounded-xl text-sm leading-relaxed"
@@ -160,7 +176,7 @@ else:
                 },
                 {
                   n: '03', title: 'Inject into your Code',
-                  body: <>Use the endpoint <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded font-mono text-xs">https://api.ralles.com/v1/verify</code> to validate all SQL strings before executing them on your server.</>
+                  body: <>Use the endpoint <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded font-mono text-xs">https://api.ralles.com/reasoning/verify</code> to validate all SQL strings before executing them on your server.</>
                 },
               ].map(step => (
                 <li key={step.n} className="flex gap-4">
@@ -211,7 +227,7 @@ else:
           >
             <h2 className="text-2xl font-bold text-white">Development &amp; Sandbox Databases</h2>
             <p className="text-slate-400 leading-relaxed">
-              Ralles works identically whether you connect a local development database or a production database. When setting up a reasoning server, simply provide the connection string for your database. The schema introspection and extraction system parses table metadata structures in the same way regardless of the environment.
+              Ralles works identically whether you connect a local development database or a production database. When setting up a Server, simply provide the connection string for your database. The schema introspection and extraction system parses table metadata structures in the same way regardless of the environment.
             </p>
           </motion.section>
 
@@ -227,9 +243,9 @@ else:
               <div className="p-6 space-y-5">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold px-2.5 py-1 rounded-lg text-white" style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }}>POST</span>
-                  <code className="text-slate-200 font-mono font-bold">/v1/verify</code>
+                  <code className="text-slate-200 font-mono font-bold">/reasoning/verify</code>
                 </div>
-                <p className="text-slate-400 text-sm">Verify whether a query complies with the server&apos;s neurosymbolic guardrail rules.</p>
+                <p className="text-slate-400 text-sm">Verify whether a query complies with the server&apos;s extracted business policy guardrail rules.</p>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">

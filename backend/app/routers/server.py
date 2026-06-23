@@ -107,7 +107,7 @@ def _get_or_hydrate_server(server_id: str) -> dict:
 @router.get("/{server_id}")
 def get_server_overview(server_id: str):
     """
-    Returns the high-level overview metrics for the specified reasoning server.
+    Returns the high-level overview metrics for the specified Server.
     """
     server = _get_or_hydrate_server(server_id)
 
@@ -125,7 +125,7 @@ def get_server_overview(server_id: str):
         "name": server["name"],
         "status": server["status"],
         "active_policies_count": len(server["rules"]),
-        "active_policies_limit": 1000,
+        "active_policies_limit": 40,
         "avg_inference_time_ms": 3.2,
         "recent_blocks": 12,
         "example_statement": server.get("example_statement", "A Waiter is a subclass of Employee. Waiters are disjoint from Buyers."),
@@ -176,7 +176,7 @@ def update_llm_config(server_id: str, request: LLMConfigRequest):
 @router.delete("/{server_id}")
 def delete_server(server_id: str):
     """
-    Disconnects and deletes the reasoning server from memory and Supabase.
+    Disconnects and deletes the Server from memory and Supabase.
     Deleting the tenant_configurations row cascades to tenant_quad_store.
     """
     server = _get_or_hydrate_server(server_id)
@@ -227,6 +227,78 @@ def get_server_rules(server_id: str):
         # Filter out plain class definitions
         "rules": [r for r in server["rules"] if r.get("type") != "ClassDefinition"]
     }
+
+
+class CustomPolicyRequest(BaseModel):
+    content: str
+
+
+@router.post("/{server_id}/analyze_custom_policies")
+def analyze_custom_policies(server_id: str, request: CustomPolicyRequest):
+    """
+    Analyzes custom copy-pasted or uploaded text policies using Gemini.
+    Validates if a custom tenant API key is supplied; warns if falling back to the system default key.
+    """
+    import json
+    server = _get_or_hydrate_server(server_id)
+    tenant_id = server["tenant_id"]
+    server_config_id = server["server_config_id"]
+
+    # Security check: Check if client configured their own API key
+    llm_key = server.get("llm_api_key", "").strip()
+    llm_provider = server.get("llm_provider", "gemini")
+    
+    using_system_key = False
+    if not llm_key:
+        # Fallback to system env keys
+        llm_key = __import__("os").getenv("GEMINI_API_KEY", __import__("os").getenv("GOOGLE_API_KEY", ""))
+        llm_provider = "gemini"
+        using_system_key = True
+
+    if not llm_key:
+        raise HTTPException(status_code=400, detail="No LLM API key configured. Please configure your own API key in the Configuration tab.")
+
+    from app.services.gemini_service import GeminiService
+    gemini_svc = GeminiService(api_key=llm_key, provider=llm_provider)
+
+    prompt = (
+        "You are an expert policy analyst. Given the following raw text file content representing "
+        "business logic or guardrail rules, parse and synthesize them into clean, structured plain-English policies.\n\n"
+        f"Raw Input:\n{request.content}\n\n"
+        "Return strictly a machine-parseable JSON array of objects (no markdown blocks or wrappers). "
+        "Each object must have: 'title', 'body', 'source_type' (trigger|function|inferred)."
+    )
+
+    try:
+        text_response = gemini_svc._call_llm(prompt, json_mode=True)
+        parsed = json.loads(text_response)
+        
+        valid_policies = []
+        for p in (parsed if isinstance(parsed, list) else []):
+            if isinstance(p, dict) and p.get("title") and p.get("body"):
+                valid_policies.append({
+                    "title": p["title"].strip(),
+                    "body": p["body"].strip(),
+                    "source_type": p.get("source_type", "inferred")
+                })
+        
+        if valid_policies and server_config_id:
+            supabase_client.save_text_policies(
+                tenant_id=tenant_id,
+                server_config_id=server_config_id,
+                policies=valid_policies
+            )
+            logger.info(f"Custom policies successfully analyzed and stored for server {server_config_id}")
+
+        return {
+            "status": "success",
+            "policies": valid_policies,
+            "using_system_key": using_system_key,
+            "message": "Custom policies successfully parsed and synced."
+        }
+    except Exception as e:
+        logger.error(f"Failed to parse custom policies: {e}")
+        raise HTTPException(status_code=500, detail=f"AI Policy extraction failed: {str(e)}")
 
 
 @router.get("/{server_id}/text_policies")
@@ -535,7 +607,7 @@ def server_chat(server_id: str, request: ChatMessageRequest):
         f"### 📝 2. NLU Translation\n*{extracted_logic_summary}*\n{assertions_text}\n"
         f"### ⚙️ 3. Ralles DL Inference Engine\n- Inference time: **{inference_time}ms**\n{dl_block}\n{tbox_text}\n{transitions_text}\n"
         f"### 🎯 4. Verdict\n"
-        f"{'✓ Consistent & Allowed. (Note: Under Open World Assumption (OWA), a statement is permitted only if it is a tautology, meaning it is logically entailed by the ontology constraints).' if is_valid else '✗ Contradictory & Blocked.'}"
+        f"{'✓ Consistent & Allowed. (Note: Under Open World Assumption (OWA), a statement is permitted only if it is a tautology, meaning it is logically entailed by the logical constraints).' if is_valid else '✗ Contradictory & Blocked.'}"
     )
 
     return {

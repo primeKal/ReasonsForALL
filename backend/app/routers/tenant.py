@@ -22,6 +22,9 @@ class ConnectionRequest(BaseModel):
     server_name: str
     connection_string: str
     repo_url: str | None = None
+    llm_provider: str | None = "gemini"
+    llm_api_key: str | None = None
+    custom_policies: str | None = None
 
 
 @router.post("/connect")
@@ -53,7 +56,7 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
         logger.warning(
             f"Database connection failed. Proceeding with simulated sandbox extraction: {result.get('message')}")
 
-    # Derive dialect from the connection string scheme
+    # Parse scheme/dialect
     dialect = request.connection_string.split("://")[0].split("+")[0]
 
     # URL-safe server key used in routes like /dashboard/servers/{server_key}
@@ -77,6 +80,8 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
         "example_statement": example_statement,
         "connection_string": request.connection_string,
         "repo_url": request.repo_url,
+        "llm_provider": request.llm_provider or "gemini",
+        "llm_api_key": request.llm_api_key,
     }
 
     # ── 3. Persist server config to tenant_configurations ──
@@ -90,6 +95,8 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
             rules_extracted=len(rules),
             example_statement=example_statement,
             repo_url=request.repo_url,
+            llm_provider=request.llm_provider or "gemini",
+            llm_api_key=request.llm_api_key,
         )
         server_config_id = row.get("id")
         ACTIVE_SERVERS[server_key]["server_config_id"] = server_config_id
@@ -113,6 +120,34 @@ def connect_database(request: ConnectionRequest, tenant_context: dict = Depends(
 
     # ── 5. Persist text-based business policies to tenant_text_policies ──
     text_policies = result.get("text_policies", [])
+    
+    # Extract custom policies if copy-pasted at creation time
+    if request.custom_policies and request.custom_policies.strip() and server_config_id:
+        try:
+            llm_key = request.llm_api_key or __import__("os").getenv("GEMINI_API_KEY", __import__("os").getenv("GOOGLE_API_KEY", ""))
+            if llm_key:
+                from app.services.gemini_service import GeminiService
+                gemini_svc = GeminiService(api_key=llm_key, provider=request.llm_provider or "gemini")
+                prompt = (
+                    "You are an expert policy analyst. Given the following raw text file content representing "
+                    "business logic or guardrail rules, parse and synthesize them into clean, structured plain-English policies.\n\n"
+                    f"Raw Input:\n{request.custom_policies}\n\n"
+                    "Return strictly a machine-parseable JSON array of objects (no markdown blocks or wrappers). "
+                    "Each object must have: 'title', 'body', 'source_type' (trigger|function|inferred)."
+                )
+                import json
+                text_response = gemini_svc._call_llm(prompt, json_mode=True)
+                parsed = json.loads(text_response)
+                for p in (parsed if isinstance(parsed, list) else []):
+                    if isinstance(p, dict) and p.get("title") and p.get("body"):
+                        text_policies.append({
+                            "title": p["title"].strip(),
+                            "body": p["body"].strip(),
+                            "source_type": p.get("source_type", "inferred")
+                        })
+        except Exception as custom_err:
+            logger.error(f"Failed to parse custom policies at creation time: {custom_err}")
+
     if server_config_id and text_policies:
         try:
             supabase_client.save_text_policies(
@@ -262,20 +297,6 @@ def onboarding_login(request: Request, tenant_context: dict = Depends(verify_ten
 def _check_and_trigger_trial_warning(user_id: str, email: str, full_name: str):
     """
     Checks if any server trial is expiring in less than 7 days, and fires a warning.
+    Disallowed/No-op since payments/trials are removed.
     """
-    try:
-        configs = supabase_client.get_servers_for_tenant(f"tenant_{user_id}")
-        if not configs:
-            return
-        now = datetime.now(timezone.utc)
-        for c in configs:
-            exp_str = c.get("trial_expires_at")
-            if exp_str:
-                clean_exp = exp_str.replace("Z", "+00:00")
-                exp_dt = datetime.fromisoformat(clean_exp)
-                days_left = (exp_dt - now).days
-                if 0 <= days_left <= 7:
-                    send_trial_expiration_warning(email, full_name, days_left)
-                    break  # only warn once
-    except Exception as e:
-        logger.warning(f"Error checking trial warnings: {e}")
+    return

@@ -11,3 +11,7 @@ python-dotenv>=1.0.0
 stripe
 rdflib
 owlrl
+google-genai>=0.1.0
+google-adk
+
+

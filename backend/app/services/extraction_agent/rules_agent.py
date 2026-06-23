@@ -105,9 +105,9 @@ class RulesAgent:
 
         logger.info(
             f"RulesAgent: Extracted {len(rules)} quantified ontological rules.")
-        # Enforce a safe default cap of 100 rules to avoid overwhelming downstream systems
-        if len(rules) > 100:
+        # Enforce a safe default cap of 40 rules to avoid overwhelming downstream systems
+        if len(rules) > 40:
             logger.warning(
-                f"RulesAgent: Truncating rules list from {len(rules)} to 100.")
-            return rules[:100]
+                f"RulesAgent: Truncating rules list from {len(rules)} to 40.")
+            return rules[:40]
         return rules

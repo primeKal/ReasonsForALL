@@ -28,7 +28,7 @@ export default function ContactPage() {
     <div className="max-w-3xl mx-auto py-12 px-6">
       <h1 className="text-2xl font-bold mb-4">Contact & Submit a Request</h1>
       <p className="text-sm text-slate-400 mb-4">
-        Submit a request for bulk ontology extraction, assistance, or custom
+        Submit a request for bulk schema extraction, logical reasoning assistance, or custom
         work. We'll follow up via email.
       </p>
       <form onSubmit={handleSubmit} className="space-y-4">

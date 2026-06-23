@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralles Risky Request Intercepted</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f3f4f6;
+      padding: 40px 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+    .header {
+      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+      padding: 32px;
+      text-align: center;
+    }
+    .logo-badge {
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      line-height: 48px;
+      background-color: #ffffff;
+      color: #7c3aed;
+      font-size: 24px;
+      font-weight: 900;
+      border-radius: 10px;
+      text-align: center;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+    .content {
+      padding: 32px;
+      background-color: #ffffff;
+    }
+    .content p {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #4b5563;
+    }
+    .card {
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 24px 0;
+    }
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #9ca3af;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      text-align: center;
+      margin-top: 16px;
+      box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2), 0 2px 4px -1px rgba(124, 58, 237, 0.1);
+    }
+    .footer {
+      background-color: #f9fafb;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid #e5e7eb;
+    }
+    .footer p {
+      margin: 0;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .footer a {
+      color: #7c3aed;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <div class="logo-badge">R</div>
+        <h1>Ralles</h1>
+      </div>
+      <div class="content">
+        
+    <p>Hi kaleb teshale,</p>
+    <p>⚠️ <strong>High Risk / Blocked Request Detected</strong></p>
+    <p>The Ralles LLM Judge intercepted and blocked a risky query on Server <strong>Final MMS</strong>.</p>
+    
+    <div class="card" style="border-left: 4px solid #dc2626; background-color: #fef2f2;">
+      <div class="card-title" style="color: #dc2626;">Intercepted Request Details</div>
+      <p><strong>Query:</strong> <code style="background-color: #e5e7eb; padding: 2px 6px; border-radius: 4px;">"Completely removing an order"</code></p>
+      <p><strong>Verdict:</strong> <strong style="color: #dc2626;">BLOCKED</strong></p>
+      <p><strong>Reasoning Analysis:</strong> Completely removing an order is blocked. The Soft Deletion Policy (P8) indicates that key entities, which orders are considered to be, should be soft-deleted or deactivated to retain historical data rather than being permanently removed. This is further supported by the Automatic Timestamping Policy (P31) which ensures an audit trail.</p>
+    </div>
+    
+    <div class="card">
+      <div class="card-title">Violated Business Policies</div>
+      <ul style="margin: 0; padding-left: 20px;">
+        <li style='color: #dc2626; margin-bottom: 6px;'>❌ P8</li>
+      </ul>
+    </div>
+    
+    <p>Review the server's API logs to inspect full reasoning traces and modify agent policies if necessary.</p>
+    <div style="text-align: center;">
+      <a href="http://localhost:3000/dashboard/servers" class="btn">Review Audit Logs</a>
+    </div>
+    
+      </div>
+      <div class="footer">
+        <p>&copy; 2026 Ralles Reasoning Systems. All rights reserved.</p>
+        <p>Providing logic and guardrails as a service.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

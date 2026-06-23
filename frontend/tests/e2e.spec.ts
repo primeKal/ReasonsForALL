@@ -33,7 +33,7 @@ test.describe('ReasonsForALL UI Tests', () => {
     await page.goto('/dashboard/servers');
     
     // Check page title
-    await expect(page.locator('h1:has-text("Reasoning Servers")')).toBeVisible();
+    await expect(page.locator('h1:has-text("Servers")')).toBeVisible();
     
     // Check for the mock server
     await expect(page.locator('text=Production Core')).toBeVisible();

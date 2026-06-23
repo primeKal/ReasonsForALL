@@ -145,7 +145,7 @@ def _get_email_layout(title: str, body_content: str) -> str:
       </div>
       <div class="footer">
         <p>&copy; 2026 Ralles Reasoning Systems. All rights reserved.</p>
-        <p>Providing deterministic neural-symbolic guardrails.</p>
+        <p>Providing logic and guardrails as a service.</p>
       </div>
     </div>
   </div>
@@ -279,7 +279,7 @@ def send_risky_request_alert(recipient_email: str, name: str, server_name: str, 
     body = f"""
     <p>Hi {name_label},</p>
     <p>⚠️ <strong>High Risk / Blocked Request Detected</strong></p>
-    <p>The Ralles LLM Judge intercepted and blocked a risky query on reasoning server <strong>{server_name}</strong>.</p>
+    <p>The Ralles LLM Judge intercepted and blocked a risky query on Server <strong>{server_name}</strong>.</p>
     
     <div class="card" style="border-left: 4px solid #dc2626; background-color: #fef2f2;">
       <div class="card-title" style="color: #dc2626;">Intercepted Request Details</div>

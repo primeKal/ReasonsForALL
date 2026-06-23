@@ -24,7 +24,7 @@ sequenceDiagram
     Writer->>Writer: Generates SQL Query
     note over Writer: SELECT * FROM subscription JOIN tenant...
     
-    Writer->>Guard: POST /v1/verify (API Key & SQL Query)
+    Writer->>Guard: POST /reasoning/verify (API Key & SQL Query)
     
     alt Query complies with TBox Rules
         Guard-->>Writer: status: "allowed" (Evaluation Succeeded)
@@ -47,7 +47,7 @@ sequenceDiagram
 Inject the ReasonsForALL verification directly inside the database execution tool itself. This guarantees that *no agent* can run queries on the database without going through the reasoning gatekeeper.
 
 ### Pattern B: Self-Correction Loop
-If an agent generates a query that is blocked, feed the semantic reasoning returned by the `/v1/verify` endpoint directly back into the agent's prompt context. The agent can then automatically correct the SQL query to comply with the logical policies.
+If an agent generates a query that is blocked, feed the semantic reasoning (description and recommendation) returned by the `/reasoning/verify` endpoint directly back into the agent's prompt context. The agent can then automatically correct the SQL query to comply with the logical policies.
 
 ---
 
@@ -55,7 +55,7 @@ If an agent generates a query that is blocked, feed the semantic reasoning retur
 
 ### Example 1: Microsoft AutoGen (Tool Guardrail)
 
-In Microsoft AutoGen, you register a database execution tool. We wrap this tool with a check against the `/v1/verify` API:
+In Microsoft AutoGen, you register a database execution tool. We wrap this tool with a check against the `/reasoning/verify` API:
 
 ```python
 import httpx
@@ -73,28 +73,30 @@ def verify_and_execute_query(sql_query: str) -> str:
     try:
         with httpx.Client() as client:
             response = client.post(
-                "https://api.reasonsforall.com/v1/verify",
+                "https://api.reasonsforall.com/reasoning/verify",
                 headers={
                     "Authorization": f"Bearer {RFA_API_KEY}",
                     "Content-Type": "application/json"
                 },
                 json={
                     "server_id": SERVER_ID,
-                    "agent_query": sql_query,
-                    "context": {
+                    "agent_intent": sql_query,
+                    "payload": {
                         "user_id": "usr_active_agent",
                         "session_role": "analyst"  # Dynamic context
-                    }
+                    },
+                    "include_details": True
                 },
                 timeout=5.0
             )
             
             validation = response.json()
             
-            if validation.get("status") == "blocked":
+            if not validation.get("is_valid"):
                 # Block execution and return the reasoning directly to the agent
-                reasoning = validation.get("reasoning")
-                return f"EXECUTION BLOCKED by Guardrail: {reasoning}. Please correct your query."
+                description = validation.get("description")
+                recommendation = validation.get("recommendation")
+                return f"EXECUTION BLOCKED by Guardrail: {description}. Recommendation: {recommendation}. Please correct your query."
                 
     except Exception as e:
         # Fail-closed policy: block query if the guardrail service is unreachable
@@ -156,22 +158,24 @@ def validated_query_tool(sql_query: str) -> str:
     
     payload = {
         "server_id": SERVER_ID,
-        "agent_query": sql_query,
-        "context": {
+        "agent_intent": sql_query,
+        "payload": {
             "user_id": "agent_worker_01",
             "access_tier": "standard"
-        }
+        },
+        "include_details": True
     }
     
     # Intercept query
-    res = httpx.post("https://api.reasonsforall.com/v1/verify", headers=headers, json=payload)
+    res = httpx.post("https://api.reasonsforall.com/reasoning/verify", headers=headers, json=payload)
     result = res.json()
     
-    if result.get("status") == "blocked":
+    if not result.get("is_valid"):
         # Return logical reasoning to trigger the self-correction loop in CrewAI
         return (
             f"Error: Query rejected by ReasonsForALL Guardrail.\n"
-            f"Reasoning: {result.get('reasoning')}\n"
+            f"Description: {result.get('description')}\n"
+            f"Recommendation: {result.get('recommendation')}\n"
             f"Please revise your SQL query logic to comply with schema constraints."
         )
         
@@ -184,5 +188,5 @@ def validated_query_tool(sql_query: str) -> str:
 ## 4. Key Advantages of the ReasonsForALL Multi-Agent Setup
 
 1. **Deterministic Security**: Multi-agent systems can bypass typical vector-based guardrails through prompt injection. ReasonsForALL uses formal Description Logics (TBox) to enforce deterministic security that LLMs cannot jailbreak.
-2. **Self-Healing Agents**: By feeding the semantic `reasoning` response string back to the LLM agent upon a block, the agent can understand *why* its database schema join or query was logical nonsense or out-of-bounds, self-correcting the query in the next execution turn without human developer intervention.
+2. **Self-Healing Agents**: By feeding the semantic explanation and recommendation (`description` and `recommendation`) back to the LLM agent upon a block, the agent can understand *why* its database schema join or query was logical nonsense or out-of-bounds, self-correcting the query in the next execution turn without human developer intervention.
 3. **Decentralized Policies**: Keep your guardrail policies isolated within ReasonsForALL's semantic dashboard, avoiding hardcoding intricate schema-validation rules inside agent prompt systems.

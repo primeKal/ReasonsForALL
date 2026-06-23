@@ -33,11 +33,13 @@ def insert_server_config(
     name: str,
     dialect: str,
     rules_extracted: int,
-    max_rules: int = 1000,
+    max_rules: int = 100000,
     row_scan_depth: int = 500,
     status: str = "Connected",
     example_statement: str = None,
     repo_url: str | None = None,
+    llm_provider: str = "gemini",
+    llm_api_key: str | None = None,
 ) -> dict:
     """
     Insert a new row in tenant_configurations for a connected server.
@@ -56,6 +58,8 @@ def insert_server_config(
         "row_scan_depth": row_scan_depth,
         "synced_at": datetime.now(timezone.utc).isoformat(),
         "example_statement": example_statement,
+        "llm_provider": llm_provider,
+        "llm_api_key": llm_api_key,
     }
     response = httpx.post(url, json=payload, headers=_headers(), timeout=10.0)
     response.raise_for_status()
@@ -309,41 +313,9 @@ def get_api_logs_for_server(tenant_id: str, server_config_id: int) -> list:
 def is_tenant_premium(tenant_id: str) -> bool:
     """
     Checks if the given tenant is premium.
-    Checks both the profiles table and the tenant_configurations table.
+    Always returns True since payments have been removed.
     """
-    # 1. Check profiles table first
-    user_id = tenant_id.replace("tenant_", "")
-    url = f"{config.SUPABASE_URL}/rest/v1/profiles"
-    params = {"id": f"eq.{user_id}", "select": "is_premium"}
-    try:
-        response = httpx.get(url, params=params,
-                             headers=_headers(), timeout=5.0)
-        if response.status_code == 200:
-            rows = response.json()
-            if rows and rows[0].get("is_premium"):
-                return True
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Error checking profiles is_premium: {e}")
-
-    # 2. Check tenant_configurations table as fallback
-    url_config = f"{config.SUPABASE_URL}/rest/v1/tenant_configurations"
-    params_config = {"tenant_id": f"eq.{tenant_id}",
-                     "is_premium": "eq.true", "select": "id"}
-    try:
-        response = httpx.get(url_config, params=params_config,
-                             headers=_headers(), timeout=5.0)
-        if response.status_code == 200:
-            rows = response.json()
-            if rows:
-                return True
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Error checking tenant_configurations is_premium: {e}")
-
-    return False
+    return True
 
 
 def get_profile_by_id(user_id: str) -> dict | None:

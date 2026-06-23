@@ -11,7 +11,7 @@ test('Create a database server and generate an API key', async ({ page }) => {
   // --- Step 1: Go to dashboard (session is pre-loaded via storageState) ---
   await page.goto('/dashboard/servers');
   // If redirected to login the session wasn't loaded — means Supabase key format changed
-  await expect(page.locator('h1', { hasText: 'Reasoning Servers' })).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('h1', { hasText: 'Servers' })).toBeVisible({ timeout: 15000 });
   console.log('✅ Dashboard loaded');
 
   // --- Step 2: Create Server Wizard ---
@@ -35,6 +35,12 @@ test('Create a database server and generate an API key', async ({ page }) => {
   const testDbUrl = process.env.TEST_DATABASE_URL ?? '';
   if (!testDbUrl) throw new Error('TEST_DATABASE_URL env var is not set. Add it to your .env.local file.');
   await page.fill('input[id="conn"]', testDbUrl);
+  const nextButton3 = page.locator('button:has-text("Next Step")');
+  await expect(nextButton3).toBeEnabled();
+  await nextButton3.click();
+
+  // Step 4: custom llm (optional, just submit)
+  await expect(page.locator('text=Custom LLM Provider')).toBeVisible({ timeout: 10000 });
   const connectButton = page.locator('button:has-text("Connect & Map")');
   await expect(connectButton).toBeEnabled();
   await connectButton.click();

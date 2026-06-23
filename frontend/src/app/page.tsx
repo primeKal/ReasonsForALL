@@ -41,7 +41,7 @@ export default function LandingPage() {
         verdict: "PERMITTED",
         isValid: true,
         latency: "1.9ms",
-        reason: "Consistent neurosymbolic association. Employee is authorized to place transactions, and Waiter is a valid sub-role of Employee."
+        reason: "Consistent logical association. Employee is authorized to place transactions, and Waiter is a valid sub-role of Employee."
       },
       {
         query: "Waiter disjointWith Buyer; Waiter placing Buyer transaction",
@@ -102,7 +102,7 @@ export default function LandingPage() {
           </h1>
           
           <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            We use state-of-the-art multi-agent systems and neurosymbolic associations to provide accurate and hallucination-free reasoning and query guardrails. Ralles maps your database schemas to logic structures and intercepts agent intents to enforce zero-trust policies.
+            We use state-of-the-art multi-agent systems and logical associations to provide accurate and hallucination-free reasoning and query guardrails. Ralles maps your database schemas to logic structures and intercepts agent intents to enforce zero-trust policies.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto sm:max-w-none mb-16">
@@ -189,7 +189,7 @@ export default function LandingPage() {
                     </div>
 
                     <div>
-                      <span className="text-slate-500 block mb-1">&gt; VERIFYING NEUROSYMBOLIC ASSOCIATION GRAPH:</span>
+                      <span className="text-slate-500 block mb-1">&gt; VERIFYING LOGICAL ASSOCIATION GRAPH:</span>
                       <span className="text-cyan-400 block animate-pulse">● Connecting schema policies... done</span>
                     </div>
 
@@ -217,7 +217,7 @@ export default function LandingPage() {
         <section className="py-20 px-6 lg:px-14 max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-white">Compare Guardrail Architectures</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto text-sm">Why modern AI architectures need neurosymbolic guardrails instead of probabilistic LLM filters.</p>
+            <p className="text-slate-400 max-w-2xl mx-auto text-sm">Why modern AI architectures need logical guardrails instead of probabilistic LLM filters.</p>
           </div>
 
           <div className="rounded-2xl border border-white/5 overflow-hidden shadow-xl overflow-x-auto bg-slate-900/20 backdrop-blur-md">
@@ -271,9 +271,9 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-white">The Ralles Tech Stack</h2>
-              <p className="text-slate-400 max-w-2xl mx-auto text-base">Accurate guardrails built on multi-agent synthesis and neurosymbolic associations.</p>
+              <p className="text-slate-400 max-w-2xl mx-auto text-base">Accurate guardrails built on multi-agent synthesis and logical associations. Fully verified by <a href="https://reasons-for-all-i55a.vercel.app/" className="text-violet-400 hover:underline">reasons-for-all-i55a.vercel.app</a>.</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
                   <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🤖</div>
@@ -281,7 +281,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    Our cooperative multi-agent swarm inspects database blueprints (relations, constraints, triggers, functions) and synthesizes plain-English business policies automatically.
+                    Our cooperative multi-agent swarm inspects database blueprints (relations, constraints, triggers, functions). Supports extremely large systems (like Odoo) with a optimized cap of 40 active tables/concepts, rules, and generated policies to ensure fast, failure-free schema parsing.
                   </p>
                 </CardContent>
               </Card>
@@ -289,23 +289,59 @@ export default function LandingPage() {
               <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
                   <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🧠</div>
-                  <CardTitle className="text-white">Neurosymbolic Engine</CardTitle>
+                  <CardTitle className="text-white">Centralized Business Logic Agent</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    Bridges natural-language user queries with explicit schema logic. Ensures zero semantic drift or hallucinated tables when AI agents interact with your systems.
+                    Establish a single source of truth for business logic. You don't have to duplicate or hardcode rules inside every system, agent script, or downstream LLM context call.
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
-                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🔒</div>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🛑</div>
+                  <CardTitle className="text-white">One-Click Logic Blocking</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    A centralized control panel to immediately block all AI agents and connected client systems from executing specific logical actions or accessing certain resources globally.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">⚠️</div>
+                  <CardTitle className="text-white">Centralized Dangerous Attempts Hub</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    A unified registry capturing all blocked requests, policy violations, and anomalous query patterns across all connected corporate applications.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">📋</div>
+                  <CardTitle className="text-white">Unified Audit Logging</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400 leading-relaxed text-sm">
+                    Thoroughly audit what each AI agent does. View detailed logical evaluation graphs, latency metrics, and reason traces to maintain complete transparency.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🛡️</div>
                   <CardTitle className="text-white">Zero Trust Firewall</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    A stateless check running in under 5 milliseconds. Catches impossible joins, illegal status jumps, and privilege escalations before SQL gets generated.
+                    A stateless verification layer running in under 5 milliseconds. Catches impossible actions and privilege escalations before database queries are executed.
                   </p>
                 </CardContent>
               </Card>
@@ -361,7 +397,7 @@ export default function LandingPage() {
                     color: 'from-blue-600 to-cyan-500',
                     glow: 'rgba(59,130,246,0.3)',
                     title: 'Association Mapping',
-                    desc: 'Business entities and guardrail rules are mapped into a neurosymbolic association graph stored in your private tenant memory.',
+                    desc: 'Business entities and guardrail rules are mapped into a logical association graph stored in your private tenant memory.',
                   },
                   {
                     step: '04',
@@ -377,7 +413,7 @@ export default function LandingPage() {
                     color: 'from-emerald-600 to-green-500',
                     glow: 'rgba(16,185,129,0.3)',
                     title: 'Runtime Guardrails',
-                    desc: 'Every AI agent intent is verified against the neurosymbolic association map in < 5ms. Tautologies are permitted; all others are blocked.',
+                    desc: 'Every AI agent intent is verified against the logical association map in < 5ms. Tautologies are permitted; all others are blocked.',
                   },
                 ].map((item, i) => (
                   <div key={i} className="flex flex-col items-center text-center group">
@@ -421,7 +457,7 @@ export default function LandingPage() {
                 {[
                   { label: 'Your DB', icon: '🗄️', sublabel: 'postgres / mysql' },
                   { label: 'Schema Parser', icon: '🤖', sublabel: 'multi-agent swarm' },
-                  { label: 'Association Map', icon: '📐', sublabel: 'neurosymbolic memory' },
+                  { label: 'Association Map', icon: '📐', sublabel: 'logical memory' },
                   { label: 'Association Graph', icon: '🕸️', sublabel: 'explore & export' },
                   { label: 'Reasoning Engine', icon: '🧠', sublabel: '< 5ms guardrail check' },
                   { label: 'AI Agent', icon: '✅', sublabel: 'Permitted or Blocked' },

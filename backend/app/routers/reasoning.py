@@ -18,6 +18,7 @@ class VerifyPayloadRequest(BaseModel):
     agent_intent: str
     payload: Dict[str, Any]
     server_id: str
+    include_details: bool | None = False
 
 
 @router.post("/verify")
@@ -36,7 +37,7 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
             request.server_id)
         if not db_server:
             raise HTTPException(
-                status_code=404, detail="Reasoning server not found")
+                status_code=404, detail="Server not found")
 
         # 2. Fetch all quads/rules associated with this server config from Supabase
         db_quads = supabase_client.get_quads_for_server(
@@ -83,10 +84,47 @@ def verify_payload(request: VerifyPayloadRequest, server_context: dict = Depends
     except Exception as log_err:
         logger.warning(f"Failed to log verify API request: {log_err}")
 
-    return {
+    response_data = {
         "agent_intent": request.agent_intent,
         "is_valid": validation_result["is_valid"],
         "violations": validation_result["violations"],
         "inference_time_ms": validation_result["inference_time_ms"],
         "message": "Payload validation complete."
     }
+
+    # Generate detailed description and recommendation if requested
+    if request.include_details:
+        description = "Query successfully validated and matched active security policies."
+        recommendation = "No action required. Safe to execute transaction query."
+        
+        if not validation_result["is_valid"]:
+            description = f"Query blocked due to policy violations: {', '.join(validation_result['violations'])}."
+            recommendation = "Revise transaction joins, ensure authentication contexts are supplied, or verify user role permissions."
+            
+            # Enrich using custom LLM if possible
+            llm_key = db_server.get("llm_api_key", "").strip() or __import__("os").getenv("GEMINI_API_KEY", __import__("os").getenv("GOOGLE_API_KEY", ""))
+            if llm_key:
+                try:
+                    from app.services.gemini_service import GeminiService
+                    gemini_svc = GeminiService(api_key=llm_key, provider=db_server.get("llm_provider", "gemini"))
+                    prompt = (
+                        "You are an AI Security Guardrail analyst. Analyze the following blocked query "
+                        "and its violations, then provide a detailed explanation of why it was blocked "
+                        "and an actionable recommendation for correcting it.\n\n"
+                        f"Query/Intent: {request.agent_intent}\n"
+                        f"Payload Context: {request.payload}\n"
+                        f"Violations Detected: {validation_result['violations']}\n\n"
+                        "Return strictly a JSON object with: 'description' (why it was blocked) and 'recommendation' (how the agent or developer can resolve it)."
+                    )
+                    import json
+                    text_response = gemini_svc._call_llm(prompt, json_mode=True)
+                    parsed = json.loads(text_response)
+                    description = parsed.get("description", description)
+                    recommendation = parsed.get("recommendation", recommendation)
+                except Exception as llm_err:
+                    logger.warning(f"Failed to enrich details with LLM: {llm_err}")
+
+        response_data["description"] = description
+        response_data["recommendation"] = recommendation
+
+    return response_data

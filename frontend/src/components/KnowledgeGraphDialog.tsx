@@ -153,7 +153,7 @@ function buildTTL(
   rules: Rule[],
 ): string {
   const safe = (s: string) => s.replace(/[^a-zA-Z0-9_]/g, "_");
-  const base = `https://ralles.ai/ontology/${safe(serverName)}#`;
+  const base = `https://ralles.ai/logical-map/${safe(serverName)}#`;
 
   const lines: string[] = [
     `@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .`,
@@ -163,7 +163,7 @@ function buildTTL(
     `@prefix :     <${base}> .`,
     ``,
     `<${base}> a owl:Ontology ;`,
-    `  rdfs:label "${serverName} Ontology"^^xsd:string .`,
+    `  rdfs:label "${serverName} Association Graph"^^xsd:string .`,
     ``,
     `# ── Classes ──────────────────────────────────────────────────────────────`,
   ];
@@ -614,7 +614,7 @@ export default function KnowledgeGraphDialog({
                   </span>
                 </h2>
                 <p className="text-sm text-slate-400 mt-0.5">
-                  Neurosymbolic association graph built from your database —{" "}
+                  Schema association graph built from your database —{" "}
                   {concepts.length} entities · {rules.length} associations
                 </p>
               </div>
@@ -746,7 +746,7 @@ export default function KnowledgeGraphDialog({
                     </p>
                     <p className="text-slate-500 text-sm max-w-xs">
                       Sync your database schema to automatically populate the
-                      neurosymbolic association graph with entities and
+                      logical association graph with entities and
                       relationships.
                     </p>
                     <button
@@ -819,7 +819,7 @@ export default function KnowledgeGraphDialog({
                       🎓 Interactive Demo
                     </p>
                     <p className="text-slate-400 leading-relaxed">
-                      This sample neurosymbolic association graph illustrates a
+                      This sample schema association graph illustrates a
                       restaurant/e-commerce schema.
                       <strong className="text-slate-200">
                         {" "}
@@ -880,7 +880,7 @@ export default function KnowledgeGraphDialog({
               style={{ background: "rgba(0,0,0,0.2)" }}
             >
               <span>
-                Ralles Neurosymbolic Association Graph · Export and explore in
+                Ralles Schema Association Graph · Export and explore in
                 Neo4j or any graph tool
               </span>
               <span>

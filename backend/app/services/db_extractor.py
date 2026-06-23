@@ -15,11 +15,11 @@ class DBExtractor:
         Enforces read-only introspection.
         """
         try:
-            self.logger.warning(
+            self.logger.info(
                 "DBExtractor: Starting schema extraction process...")
             # Convert postgres:// to postgresql:// as SQLAlchemy requires postgresql://
             if connection_string.startswith("postgres://"):
-                self.logger.warning(
+                self.logger.info(
                     "DBExtractor: Converting postgres:// scheme to postgresql://")
                 connection_string = connection_string.replace(
                     "postgres://", "postgresql://", 1)
@@ -27,17 +27,17 @@ class DBExtractor:
             # Enforce read-only for PostgreSQL (if applicable)
             connect_args = {"connect_timeout": 3}
             if connection_string.startswith("postgresql"):
-                self.logger.warning(
+                self.logger.info(
                     "DBExtractor: Target is PostgreSQL. Preparing read-only connection arguments.")
                 connect_args = {
                     "options": "-c default_transaction_read_only=on", "connect_timeout": 3}
 
             try:
-                self.logger.warning("DBExtractor: Creating database engine...")
+                self.logger.info("DBExtractor: Creating database engine...")
                 engine = create_engine(
                     connection_string, connect_args=connect_args)
                 metadata = MetaData()
-                self.logger.warning(
+                self.logger.info(
                     "DBExtractor: Reflecting 'public' schema using engine...")
                 metadata.reflect(bind=engine, schema="public")
             except SQLAlchemyError as e:
@@ -61,9 +61,9 @@ class DBExtractor:
                 else:
                     raise e
 
-            self.logger.warning(
+            self.logger.info(
                 "DBExtractor: Connection succeeded. Reflecting complete.")
-            self.logger.warning(
+            self.logger.info(
                 f"DBExtractor: Sorted tables found in schema 'public': {[t.name for t in metadata.sorted_tables]}")
 
             # Translate to rich schema metadata format for multi-agent consumption
@@ -99,23 +99,23 @@ class DBExtractor:
                     "foreign_keys": fkey_info
                 })
 
-            self.logger.warning(
+            self.logger.info(
                 "DBExtractor: Launching Multi-Agent Ontology Extraction System...")
             from app.services.extraction_agent import MultiAgentOntologySystem
             agent_system = MultiAgentOntologySystem()
             agent_result = agent_system.extract_enriched_ontology(
-                schema_metadata, repo_url=repo_url, concept_cap=100, rules_cap=100, subsumption_cap=100)
+                schema_metadata, repo_url=repo_url, concept_cap=40, rules_cap=40, hierarchy_cap=40)
 
             # If any agents truncated results, include a hint in the result message
             trunc = agent_result.get("truncation", {})
             trunc_msgs = []
             if trunc.get("concepts_truncated"):
-                trunc_msgs.append("concept extraction truncated to 100 items")
+                trunc_msgs.append("concept extraction truncated to 40 items")
             if trunc.get("rules_truncated"):
-                trunc_msgs.append("rule extraction truncated to 100 items")
-            if trunc.get("subsumptions_truncated"):
+                trunc_msgs.append("rule extraction truncated to 40 items")
+            if trunc.get("hierarchies_truncated"):
                 trunc_msgs.append(
-                    "subsumption extraction truncated to 100 items")
+                    "hierarchy extraction truncated to 40 items")
             trunc_message = ", ".join(trunc_msgs) if trunc_msgs else None
 
             rules = agent_result["rules"]
@@ -130,7 +130,7 @@ class DBExtractor:
                     f"DBExtractor: Capping extracted rules from {len(rules)} to {rule_cap}.")
                 rules = rules[:rule_cap]
 
-            self.logger.warning(
+            self.logger.info(
                 f"DBExtractor: Completed Multi-Agent rule mapping. Mapped rules: {len(rules)}")
 
             # ── Text-policy extraction from DB triggers & functions ──
@@ -167,9 +167,12 @@ class DBExtractor:
 
                 from app.services.gemini_service import GeminiService
                 gemini_svc = GeminiService()
+                # filter rules into concepts and relations to pass as context
+                raw_concepts = [r for r in agent_result.get("rules", []) if r.get("type") == "ClassDefinition"]
+                raw_relations = [r for r in agent_result.get("rules", []) if r.get("type") != "ClassDefinition"]
                 text_policies = gemini_svc.extract_text_policies_from_db_objects(
-                    triggers, functions, table_names, schema_metadata)
-                self.logger.warning(
+                    triggers, functions, table_names, schema_metadata, concepts=raw_concepts, rules=raw_relations)
+                self.logger.info(
                     f"DBExtractor: Synthesized {len(text_policies)} text-based business policies.")
             except Exception as policy_err:
                 self.logger.warning(

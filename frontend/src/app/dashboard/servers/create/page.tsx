@@ -12,7 +12,7 @@ const STEPS = [
     num: 1,
     title: "Server Name",
     icon: "🏷️",
-    desc: "Give your reasoning server a recognizable name.",
+    desc: "Give your Server a recognizable name.",
   },
   {
     num: 2,
@@ -26,6 +26,12 @@ const STEPS = [
     icon: "🔒",
     desc: "Provide a connection string. Ralles only reads schema metadata, never row data.",
   },
+  {
+    num: 4,
+    title: "LLM Configuration",
+    icon: "🧠",
+    desc: "Configure a custom OpenAI or Gemini API key (optional).",
+  },
 ];
 
 export default function CreateServerWizard() {
@@ -35,6 +41,9 @@ export default function CreateServerWizard() {
     dialect: "postgresql",
     connectionString: "",
     repoUrl: "",
+    llmProvider: "gemini",
+    llmApiKey: "",
+    customPolicies: "",
   });
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +75,9 @@ export default function CreateServerWizard() {
             server_name: formData.name,
             connection_string: formData.connectionString,
             repo_url: formData.repoUrl,
+            llm_provider: formData.llmProvider,
+            llm_api_key: formData.llmApiKey,
+            custom_policies: formData.customPolicies,
           }),
         },
       );
@@ -103,7 +115,7 @@ export default function CreateServerWizard() {
       <div className="text-center mb-12">
         <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-4 py-1.5 text-xs font-bold text-violet-300 mb-6">
           <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" />
-          New Reasoning Server
+          New Server
         </div>
         <h1 className="text-4xl font-extrabold text-white tracking-tight mb-3">
           Connect Database
@@ -146,7 +158,7 @@ export default function CreateServerWizard() {
             </div>
             {i < STEPS.length - 1 && (
               <div
-                className="w-16 sm:w-24 h-0.5 mx-2 mb-5 transition-all"
+                className="w-12 sm:w-16 h-0.5 mx-2 mb-5 transition-all"
                 style={{
                   background:
                     step > s.num
@@ -217,6 +229,44 @@ export default function CreateServerWizard() {
                     }
                     className={inputStyle}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="custom-policies"
+                    className="text-slate-300 text-xs font-semibold"
+                  >
+                    Custom Policies &amp; Guardrail Rules (optional)
+                  </Label>
+                  <textarea
+                    id="custom-policies"
+                    placeholder="Copy-paste raw text policies or upload a text file. e.g. Waiters cannot access billing tables."
+                    value={formData.customPolicies}
+                    onChange={(e) =>
+                      setFormData({ ...formData, customPolicies: e.target.value })
+                    }
+                    className="w-full min-h-[80px] p-3 rounded-md border border-white/10 bg-slate-900/80 text-white placeholder:text-slate-500 text-xs focus:border-violet-500/50 focus:outline-none"
+                  />
+                  <div className="flex items-center gap-2 mt-1">
+                    <label className="px-2.5 py-1 rounded bg-white/5 border border-white/10 text-slate-300 text-[10px] font-bold cursor-pointer hover:bg-white/10 transition-all">
+                      📁 Upload text file
+                      <input
+                        type="file"
+                        accept=".txt,.md"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const r = new FileReader()
+                          r.onload = (ev) => {
+                            if (ev.target?.result) {
+                              setFormData({ ...formData, customPolicies: ev.target.result as string })
+                            }
+                          }
+                          r.readAsText(file)
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -325,6 +375,67 @@ export default function CreateServerWizard() {
                     className={inputStyle}
                   />
                 </div>
+              </motion.div>
+            )}
+
+            {step === 4 && (
+              <motion.div
+                key="step4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-1">
+                    Custom LLM Provider
+                  </h2>
+                  <p className="text-slate-400 text-sm">{STEPS[3].desc}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="llm-provider"
+                    className="text-slate-300 text-xs font-semibold"
+                  >
+                    LLM Provider
+                  </Label>
+                  <select
+                    id="llm-provider"
+                    value={formData.llmProvider}
+                    onChange={(e: any) =>
+                      setFormData({ ...formData, llmProvider: e.target.value })
+                    }
+                    className="flex h-11 w-full items-center justify-between rounded-md border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="gemini">Google Gemini (Default)</option>
+                    <option value="openai">OpenAI (GPT-4o-mini)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="llm-api-key"
+                    className="text-slate-300 text-xs font-semibold"
+                  >
+                    API Key (Optional)
+                  </Label>
+                  <Input
+                    id="llm-api-key"
+                    type="password"
+                    value={formData.llmApiKey}
+                    onChange={(e) =>
+                      setFormData({ ...formData, llmApiKey: e.target.value })
+                    }
+                    placeholder="Enter your provider's API key"
+                    className={inputStyle}
+                  />
+                  <p className="text-xs text-slate-500">
+                    {formData.llmProvider === "openai"
+                      ? "Required format: sk-proj-... or sk-..."
+                      : "Required format: AIzaSy..."}
+                  </p>
+                </div>
 
                 {isExtracting && (
                   <div
@@ -337,8 +448,7 @@ export default function CreateServerWizard() {
                     <div className="flex items-center justify-center gap-3">
                       <span className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
                       <p className="text-violet-300 font-semibold">
-                        Analyzing schema & generating neurosymbolic
-                        associations...
+                        Analyzing schema & extracting business logic guardrails...
                       </p>
                     </div>
                   </div>
@@ -373,10 +483,13 @@ export default function CreateServerWizard() {
               ← Back
             </button>
 
-            {step < 3 ? (
+            {step < 4 ? (
               <button
                 onClick={() => setStep((s) => s + 1)}
-                disabled={step === 1 && !formData.name}
+                disabled={
+                  (step === 1 && !formData.name) ||
+                  (step === 3 && !formData.connectionString)
+                }
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   background: "linear-gradient(135deg,#7c3aed,#6366f1)",
@@ -388,7 +501,7 @@ export default function CreateServerWizard() {
             ) : (
               <button
                 onClick={handleConnect}
-                disabled={isExtracting || !formData.connectionString}
+                disabled={isExtracting}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{
                   background: isExtracting

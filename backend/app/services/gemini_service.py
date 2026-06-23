@@ -19,14 +19,22 @@ class GeminiService:
             self.provider = "gemini"
         self.model_name = "gemini-2.5-flash"
 
+        if self.provider == "gemini":
+            from google import genai
+            if self.api_key:
+                self.client = genai.Client(api_key=self.api_key)
+            else:
+                gcp_project = os.getenv("GCP_PROJECT_ID", "dart-madness")
+                self.client = genai.Client(vertexai=True, project=gcp_project, location="us-central1")
+
     def _call_llm(self, prompt: str, json_mode: bool = False) -> str:
         """
         Unified LLM caller that directs the query to either Gemini or OpenAI API
         depending on the configured provider, with automatic retry handling on 429 errors.
         """
         import time as _time
-        if not self.api_key:
-            raise ValueError("No API key available for LLM service call.")
+        if self.provider == "openai" and not self.api_key:
+            raise ValueError("No API key available for OpenAI service call.")
 
         max_attempts = 3
         last_error = None
@@ -47,41 +55,33 @@ class GeminiService:
                     }
                     if json_mode:
                         payload["response_format"] = {"type": "json_object"}
-                else:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent?key={self.api_key}"
-                    headers = {"Content-Type": "application/json"}
-                    payload = {
-                        "contents": [
-                            {
-                                "parts": [
-                                    {"text": prompt}
-                                ]
-                            }
-                        ]
-                    }
-                    if json_mode:
-                        payload["generationConfig"] = {
-                            "responseMimeType": "application/json"
-                        }
+                    
+                    response = httpx.post(
+                        url, json=payload, headers=headers, timeout=40.0)
 
-                response = httpx.post(
-                    url, json=payload, headers=headers, timeout=40.0)
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get(
+                            "Retry-After", 5 * attempt))
+                        logger.warning(
+                            f"[LLM Call] Rate limited (429). Waiting {retry_after}s before retry...")
+                        _time.sleep(retry_after)
+                        continue
 
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get(
-                        "Retry-After", 5 * attempt))
-                    logger.warning(
-                        f"[LLM Call] Rate limited (429). Waiting {retry_after}s before retry...")
-                    _time.sleep(retry_after)
-                    continue
-
-                response.raise_for_status()
-                result_json = response.json()
-
-                if self.provider == "openai":
+                    response.raise_for_status()
+                    result_json = response.json()
                     return result_json["choices"][0]["message"]["content"]
                 else:
-                    return result_json["candidates"][0]["content"]["parts"][0]["text"]
+                    # Use official google-genai Client (supporting Vertex AI fallback)
+                    config = {}
+                    if json_mode:
+                        config["response_mime_type"] = "application/json"
+                    
+                    response = self.client.models.generate_content(
+                        model=self.model_name,
+                        contents=prompt,
+                        config=config
+                    )
+                    return response.text
 
             except Exception as e:
                 logger.error(
@@ -101,13 +101,14 @@ class GeminiService:
         Analyze provided `concepts` and `rules` to identify subsumption (subClassOf) relations.
         Accepts both the extracted concepts (classes) and any preliminary rules (object properties, quads).
         """
-        if not self.api_key:
+        has_llm = (self.provider == "gemini" and self.client is not None) or (self.provider == "openai" and self.api_key)
+        if not has_llm:
             logger.warning(
-                "No LLM API key configured. Using local fallback rule analysis.")
+                "No LLM API key or client configured. Using local fallback rule analysis.")
             return self._fallback_local_analysis(rules)
 
         prompt = (
-            "You are an AI Ontology Agent. Your task is to analyze an extracted database ontology "
+            "You are an AI Logical Reasoning Agent. Your task is to analyze an extracted database logical schema "
             "(a set of concepts and schema-derived rules) and identify logical subsumption "
             "(subClassOf / ClassHierarchy) relationships.\n\n"
             "Context Provided:\n"
@@ -134,13 +135,13 @@ class GeminiService:
                 subsumes = parsed_data.get(
                     "subsumes_relations") or parsed_data.get("subsumes") or []
                 example_stmt = parsed_data.get("example_logic_statement") or parsed_data.get(
-                    "example_statement") or "Ontological extraction completed."
+                    "example_statement") or "Logical schema extraction completed."
             elif isinstance(parsed_data, list):
                 subsumes = parsed_data
-                example_stmt = "Ontological extraction completed."
+                example_stmt = "Logical schema extraction completed."
             else:
                 subsumes = []
-                example_stmt = "Ontological extraction completed."
+                example_stmt = "Logical schema extraction completed."
 
             logger.info(
                 "Successfully analyzed concepts+rules and retrieved subsumption relations from LLM.")
@@ -163,16 +164,17 @@ class GeminiService:
         if isinstance(repo_urls, str):
             repo_urls = [repo_urls]
 
-        if not self.api_key:
+        has_llm = (self.provider == "gemini" and self.client is not None) or (self.provider == "openai" and self.api_key)
+        if not has_llm:
             logger.warning(
-                "No LLM API key configured. Repo-based extraction unavailable.")
+                "No LLM API key or client configured. Repo-based extraction unavailable.")
             return {"subsumes_relations": [], "note": "no_api_key"}
 
         prompt = (
             "You are an AI engineer skilled at extracting domain class hierarchies from code repositories. "
             "Given the following repository URLs, look for README files, docs, or model definitions that indicate class hierarchies, domain models, or taxonomy information.\n\n"
             f"Repo URLs:\n{json.dumps(repo_urls, indent=2)}\n\n"
-            "Optionally the following ontology context is provided (concepts and preliminary rules):\n"
+            "Optionally the following logical schema context is provided (concepts and preliminary rules):\n"
             f"Concepts:\n{json.dumps(concepts or [], indent=2)}\n\n"
             f"Rules:\n{json.dumps(rules or [], indent=2)}\n\n"
             "Return a JSON object with 'subsumes_relations' array in the form {subject, predicate, object, type}."
@@ -199,9 +201,10 @@ class GeminiService:
         Sends the user's entered logical statement and active quads to LLM
         to extract general logical assertions and expression tree parameter structures for local owlready2 DL reasoning.
         """
-        if not self.api_key:
+        has_llm = (self.provider == "gemini" and self.client is not None) or (self.provider == "openai" and self.api_key)
+        if not has_llm:
             logger.warning(
-                "No LLM API key configured. Cannot parse logical statement without API access.")
+                "No LLM API key or client configured. Cannot parse logical statement without API access.")
             return {
                 "agent_intent": "other",
                 "payload": {},
@@ -210,7 +213,7 @@ class GeminiService:
             }
 
         prompt = (
-            "You are an AI Ontology Natural Language Understanding (NLU) Parser.\n"
+            "You are an AI Logical Natural Language Understanding (NLU) Parser.\n"
             "Your task is to parse a natural language message from a user and extract the structured logical statements/assertions inferred from it.\n"
             "Do NOT evaluate or solve the logical consistency yourself. "
             "Instead, extract the semantic parameters representing the query as a general Description Logic 'expression_tree' so that a formal local Description Logic reasoner (owlready2) can execute validation.\n\n"
@@ -234,7 +237,7 @@ class GeminiService:
             "  - expression_tree: {\"operator\": \"SubClassOf\", \"left\": {\"class_name\": \"orders\"}, \"right\": {\"operator\": \"ForAll\", \"property_name\": \"has_order_lines\", \"filler\": {\"operator\": \"Not\", \"operand\": {\"operator\": \"Exists\", \"property_name\": \"has_product\", \"filler\": {\"class_name\": \"product\"}}}}}\n"
             "  - logical_assertions: ['orders ⊑ ∀has_order_lines.(¬∃has_product.product)']\n\n"
 
-            f"Active Ontology Quads (Domain Ontology):\n{json.dumps(quads, indent=2)}\n\n"
+            f"Active Logical Quads (Domain Logical Schema):\n{json.dumps(quads, indent=2)}\n\n"
             f"User Logical Statement: \"{statement}\"\n\n"
 
             "Extract the parameters and logical assertions from the statement.\n"
@@ -254,7 +257,7 @@ class GeminiService:
             f"[NLU Parser] Dispatching logical statement to LLM ({self.provider})...")
         logger.info(f"[NLU Parser] Statement: '{statement}'")
         logger.info(
-            f"[NLU Parser] Active ontology quads supplied: {len(quads)}")
+            f"[NLU Parser] Active logical quads supplied: {len(quads)}")
 
         try:
             text_response = self._call_llm(prompt, json_mode=True)
@@ -313,15 +316,16 @@ class GeminiService:
         Calls LLM to generate a high-quality human-readable Description Logic statement
         summarizing all concepts, rules, and subsumptions.
         """
-        if not self.api_key:
+        has_llm = (self.provider == "gemini" and self.client is not None) or (self.provider == "openai" and self.api_key)
+        if not has_llm:
             logger.warning(
-                "No LLM API key configured. Using local fallback for logic statement generation.")
+                "No LLM API key or client configured. Using local fallback for logic statement generation.")
             return self._fallback_generate_logic_statement(rules)
 
         prompt = (
-            "You are an AI Ontology Agent. Your task is to generate one high-quality, compelling, and professional "
+            "You are an AI Logical Reasoning Agent. Your task is to generate one high-quality, compelling, and professional "
             "human-readable guardrail policy logic statement summarizing all concepts, rules, and subsumption relationships "
-            "found in the active ontology.\n\n"
+            "found in the active logical schema.\n\n"
             "Here is the list of active concepts, rules, and subclass/subsumption axioms (represented as RDF-like quads):\n"
             f"{json.dumps(rules, indent=2)}\n\n"
             "Format requirements:\n"
@@ -364,17 +368,16 @@ class GeminiService:
         stmt += ""
         return stmt
 
-    def extract_text_policies_from_db_objects(self, triggers, functions, table_names, schema_metadata=None):
-        """Synthesize plain-English business policies from SQL triggers, functions, and schema metadata."""
-        if not self.api_key:
-            logger.warning(
-                "[PolicyExtract] No API key — using table-name fallback.")
-            return self._infer_policies_from_tables(table_names)
-        # Sanitize SQL artifacts to avoid leaking secrets or large literals to the LLM
+    def extract_text_policies_from_db_objects(self, triggers, functions, table_names, schema_metadata=None, concepts=None, rules=None):
+        """Synthesize plain-English business policies from SQL triggers, functions, schema metadata, and extracted concepts/rules."""
+        has_llm = (self.provider == "gemini" and self.client is not None) or (self.provider == "openai" and self.api_key)
+        if not has_llm:
+            logger.warning("[PolicyExtract] No active LLM client or key configured.")
+            return []
+
         def _sanitize_sql(snippet: str) -> str:
             if not snippet:
                 return ""
-            # Redact string literals and potential secrets (emails, API keys)
             import re
             s = re.sub(r"'[^']*'", "'<redacted>'", snippet)
             s = re.sub(r'"[^"]*"', '"<redacted>"', s)
@@ -382,85 +385,56 @@ class GeminiService:
             s = re.sub(r"(api[_-]?key|secret|password)\s*=\s*[^\s;]+", "<redacted>", s, flags=re.IGNORECASE)
             return s
 
-        safe_triggers = [ _sanitize_sql(t) for t in (triggers or []) ]
-        safe_functions = [ _sanitize_sql(f) for f in (functions or []) ]
-
-        # Non-hallucination guard for LLM: explicit instruction to only use given artifacts
-        non_hallucination_instructions = (
-            "IMPORTANT: Do NOT invent table, column, or role names. Only infer rules grounded in the provided schema, "
-            "triggers, and functions. If the evidence is insufficient to assert a business rule, return an empty array. "
-            "Return strictly machine-parseable JSON array and nothing else."
-        )
+        safe_triggers = [ _sanitize_sql(t.get("body", "") if isinstance(t, dict) else t) for t in (triggers or []) ]
+        safe_functions = [ _sanitize_sql(f.get("body", "") if isinstance(f, dict) else f) for f in (functions or []) ]
 
         schema_block = json.dumps(schema_metadata if schema_metadata else table_names, indent=2)
+        concepts_block = json.dumps((concepts or [])[:40], indent=2)
+        rules_block = json.dumps((rules or [])[:40], indent=2)
+
         prompt = (
-            "You are a cautious business analyst AI. Given sanitized SQL triggers, functions, and database schema, "
-            "safely synthesize concise natural-language business rules that describe who can do what and under what conditions.\n\n"
+            "You are a business policy compliance engine. Given SQL triggers, functions, database schema, "
+            "along with extracted concepts and rules, synthesize a comprehensive set of plain-English "
+            "business policies that represent the core logic and security guardrails of this database.\n\n"
+            "Ground the rules explicitly in the following inputs:\n"
             f"Tables/Schema:\n{schema_block}\n\n"
+            f"Extracted Entity Concepts:\n{concepts_block}\n\n"
+            f"Extracted Relationship Rules:\n{rules_block}\n\n"
             f"Sanitized Triggers:\n{json.dumps(safe_triggers, indent=2)}\n\n"
             f"Sanitized Functions:\n{json.dumps(safe_functions, indent=2)}\n\n"
-            f"{non_hallucination_instructions}\n\n"
-            "Return a JSON array only (no markdown). Each item must be an object with keys: 'title', 'body', 'source_type' (trigger|function|inferred).\n"
+            "Format requirements:\n"
+            "1. Focus on security, constraints, roles, actions, and table relations.\n"
+            "2. Policies MUST follow a business workflow style (step-by-step or operational stage flow, e.g. 'Order Placement Stage', 'Inventory Reservation Stage', 'Billing Invoice Generation Stage').\n"
+            "3. Each policy description ('body') MUST be very brief (exactly 1 sentence).\n"
+            "4. You MUST extract a minimum of 15 policies and a MAXIMUM of 40 policies to cover the business case.\n\n"
+            "Return strictly a machine-parseable JSON array of objects (no markdown wrappers). "
+            "Each object must have: 'title', 'body', 'source_type' (trigger|function|inferred)."
         )
 
         try:
             text_response = self._call_llm(prompt, json_mode=True)
             parsed = json.loads(text_response)
 
-            # Validate output schema
             valid_policies = []
             allowed_sources = {"trigger", "function", "inferred"}
             for idx, p in enumerate(parsed if isinstance(parsed, list) else []):
                 if not isinstance(p, dict):
-                    logger.warning(f"[PolicyExtract] Dropping non-object policy at index {idx}")
                     continue
                 title = p.get("title")
                 body = p.get("body")
                 src = p.get("source_type", "inferred")
                 if not title or not body:
-                    logger.warning(f"[PolicyExtract] Dropping invalid policy (missing title/body) at index {idx}")
                     continue
                 if src not in allowed_sources:
-                    logger.warning(f"[PolicyExtract] Normalizing source_type '{src}' to 'inferred' at index {idx}")
                     src = "inferred"
-
-                # Grounding check: ensure referenced table names exist in provided table_names
-                lower_tables = {t.lower() for t in table_names}
-                import re
-                refs = set(re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", body))
-                referenced_tables = {r for r in refs if r.lower() in lower_tables}
-                if referenced_tables:
-                    # OK: at least some references are grounded. Keep policy.
-                    valid_policies.append({"title": title.strip(), "body": body.strip(), "source_type": src})
-                else:
-                    # No grounding found — treat with suspicion
-                    logger.warning(f"[PolicyExtract] Policy at index {idx} does not reference known tables; dropping to avoid hallucination.")
+                valid_policies.append({"title": title.strip(), "body": body.strip(), "source_type": src})
 
             logger.info(f"[PolicyExtract] Extracted {len(valid_policies)} validated text policies focusing on business rules.")
-            return valid_policies if valid_policies else self._infer_policies_from_tables(table_names)
+            return valid_policies
         except Exception as e:
             logger.error(f"[PolicyExtract] Extraction failed: {e}")
-            return self._infer_policies_from_tables(table_names)
+            return []
 
-    def _infer_policies_from_tables(self, table_names):
-        """Lightweight fallback: infer generic policies from table names."""
-        policies, ns = [], {n.lower() for n in table_names}
-        if "user" in ns or "users" in ns:
-            policies.append({"title": "User Identity Integrity",
-                            "body": "Every action must be linked to a valid authenticated user. Anonymous users may not perform write operations.", "source_type": "inferred"})
-        if "order" in ns or "orders" in ns:
-            policies.append({"title": "Order Lifecycle Constraint",
-                            "body": "Orders must progress through approved status transitions only. Skipping states is prohibited.", "source_type": "inferred"})
-        if "rating" in ns or "ratings" in ns:
-            policies.append({"title": "Rating Eligibility",
-                            "body": "Only users who completed an order may submit a rating. Duplicate ratings for the same order are not permitted.", "source_type": "inferred"})
-        if "payment" in ns or "transaction" in ns or "payout" in ns:
-            policies.append({"title": "Payment Immutability",
-                            "body": "Completed payment records are immutable. Refunds must be separate reversal transactions.", "source_type": "inferred"})
-        if not policies:
-            policies.append({"title": "General Data Access Policy",
-                            "body": "All data operations must be authorized and scoped to the requesting tenant's data only.", "source_type": "inferred"})
-        return policies
 
     def analyze_with_text_policies(self, user_query: str, policies: list, quads: list = None) -> dict:
         """
@@ -468,9 +442,10 @@ class GeminiService:
         Returns structured verdict with full analysis breakdown.
         """
         from fastapi import HTTPException
-        if not self.api_key:
+        has_llm = (self.provider == "gemini" and self.client is not None) or (self.provider == "openai" and self.api_key)
+        if not has_llm:
             raise HTTPException(
-                status_code=500, detail="LLM API key not configured on the server.")
+                status_code=500, detail="LLM API key or GCP Vertex credentials not configured on the server.")
         if not policies:
             return {"is_allowed": True, "confidence": 0.5, "verdict_label": "allowed", "summary": "No text policies stored yet. Run a schema resync to extract policies.", "violated_policies": [], "supporting_policies": [], "analysis_steps": ["No policies found — defaulting to allowed."], "reasoning_mode": "text"}
 

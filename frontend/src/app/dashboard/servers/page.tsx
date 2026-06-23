@@ -57,9 +57,9 @@ export default function ServersPage() {
             <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-ping" />
             Active workspace
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white">Reasoning Servers</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight text-white">Servers</h1>
           <p className="text-slate-400 mt-2 text-base">
-            Manage your connected databases and neurosymbolic guardrails.
+            Manage your connected databases and dynamic business guardrails.
           </p>
         </div>
         <Link href="/dashboard/servers/create">
@@ -114,7 +114,7 @@ export default function ServersPage() {
           </div>
           <h3 className="text-xl font-bold text-white mb-2">No servers connected</h3>
           <p className="text-slate-400 mb-8 max-w-sm text-sm">
-            Connect your first relational database to generate your neurosymbolic association firewall.
+            Connect your first relational database to generate your business logic firewall.
           </p>
           <Link href="/dashboard/servers/create">
             <button
@@ -182,13 +182,13 @@ export default function ServersPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Active Associations</span>
-                      <span className="font-bold text-violet-400">{server.rules} / 1000</span>
+                      <span className="font-bold text-violet-400">{server.rules} / 40</span>
                     </div>
                     <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
                       <div
                         className="h-1.5 rounded-full"
                         style={{
-                          width: `${Math.min((server.rules / 1000) * 100, 100)}%`,
+                          width: `${Math.min((server.rules / 40) * 100, 100)}%`,
                           background: 'linear-gradient(90deg,#7c3aed,#6366f1)',
                         }}
                       />
