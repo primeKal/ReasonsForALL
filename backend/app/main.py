@@ -56,11 +56,7 @@ app.add_middleware(
 @app.options("/{path_name:path}")
 async def _preflight(path_name: str, request: Request):
     origin = request.headers.get("origin")
-    allowed = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        *_extra_origins,
-    ]
+    allowed = origins
     logging.info(
         f"CORS preflight received for path=/{path_name} origin={origin} allowed_origins={allowed}")
 

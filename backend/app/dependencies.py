@@ -2,6 +2,18 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 from app.config import config
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Validate critical env vars at import time so misconfiguration is caught
+# immediately (as a clear startup error) instead of at request time with a
+# cryptic "Request URL is missing an 'http://' or 'https://'" message.
+if not config.SUPABASE_URL:
+    raise RuntimeError(
+        "SUPABASE_URL is not set. "
+        "Ensure the backend/.env file exists and contains SUPABASE_URL=https://<project>.supabase.co"
+    )
 
 security = HTTPBearer()
 

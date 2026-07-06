@@ -1,8 +1,11 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env file from the backend root directory
-load_dotenv()
+# Explicitly resolve the .env file relative to this file's location
+# so it is found regardless of the working directory the server is started from.
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=_env_path, override=False)
 
 class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")
