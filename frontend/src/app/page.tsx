@@ -97,8 +97,8 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight max-w-5xl mx-auto mb-8 text-white leading-[1.15]">
-            One Source of Truth for <br className="hidden md:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">Your Business Logic</span>
+            Validate Every Action. <br className="hidden md:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">Catch Every Destructive Command.</span>
           </h1>
           
           <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">

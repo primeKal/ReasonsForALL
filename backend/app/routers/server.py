@@ -376,6 +376,7 @@ def list_api_keys(server_id: str):
 def generate_api_key(server_id: str):
     """
     Generates a new secure API key for agent injection.
+    Persists the key to Supabase so it survives server restarts.
     """
     server = _get_or_hydrate_server(server_id)
 
@@ -388,6 +389,23 @@ def generate_api_key(server_id: str):
         "created_at": "2026-05-29T12:00:00Z"
     }
     server["api_keys"].append(new_key)
+
+    # Persist to Supabase so the key works after restarts
+    try:
+        tenant_id = server.get("tenant_id", "")
+        server_config_id = server.get("server_config_id")
+        if tenant_id and server_config_id:
+            supabase_client.save_api_key(
+                tenant_id=tenant_id,
+                server_config_id=server_config_id,
+                server_key=server_id,
+                key_id=new_key["id"],
+                key_value=new_key["key"],
+            )
+            logger.info(f"API key {new_key['id']} persisted to Supabase for server {server_id}")
+    except Exception as e:
+        logger.warning(f"Failed to persist API key to Supabase: {e}")
+
     return new_key
 
 

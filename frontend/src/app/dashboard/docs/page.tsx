@@ -43,31 +43,36 @@ export default function DocsPage() {
   }
 
   const codeBlocks = {
-    curl: `curl -X POST https://api.ralles.com/reasoning/verify \\
+    curl: `curl -X POST https://reasons-for-all-backend-5211259986.us-central1.run.app/reasoning/verify \\
   -H "Authorization: Bearer sk-rfa-..." \\
   -H "Content-Type: application/json" \\
   -d '{
-    "server_id": "srv_db_prod_9012",
-    "agent_intent": "SELECT * FROM users WHERE role = \\'admin\\'",
+    "server_id": "your-server-key",
+    "agent_intent": "DELETE FROM menu_items WHERE id = 5",
     "payload": {
-      "user_id": "usr_789",
-      "session_id": "sess_456"
+      "user_role": "customer",
+      "table": "menu_items",
+      "operation": "delete"
     },
     "include_details": true
   }'`,
     langchain: `import requests
 
-# Set your variables
-SERVER_ID = "srv_db_prod_9012"
+# Your Ralles server key (visible in dashboard URL: /dashboard/servers/{server_key})
+SERVER_KEY = "your-server-key"
 API_KEY = "sk-rfa-..."
+BACKEND_URL = "https://reasons-for-all-backend-5211259986.us-central1.run.app"
 
-# Define your payload
+# The action your agent is about to perform
+agent_action = "DELETE FROM menu_items WHERE id = 5"
+
 payload = {
-    "server_id": SERVER_ID,
-    "agent_intent": "SELECT * FROM users WHERE role = 'admin'",
+    "server_id": SERVER_KEY,
+    "agent_intent": agent_action,
     "payload": {
-        "user_id": "usr_789",
-        "session_id": "sess_456"
+        "user_role": "customer",
+        "table": "menu_items",
+        "operation": "delete"
     },
     "include_details": True
 }
@@ -77,19 +82,19 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Request guardrail verification
+# Validate with Ralles before executing
 response = requests.post(
-    "https://api.ralles.com/reasoning/verify",
+    f"{BACKEND_URL}/reasoning/verify",
     json=payload,
     headers=headers
 )
 result = response.json()
 
 if result.get("is_valid"):
-    print("Success: Query complies with policies.")
+    print("Allowed: proceeding with database operation.")
 else:
-    description = result.get("description")
-    recommendation = result.get("recommendation")
+    description = result.get("description", "Policy violation")
+    recommendation = result.get("recommendation", "")
     raise PermissionError(
         f"Guardrail Blocked: {description}\\nRecommendation: {recommendation}"
     )`
@@ -176,7 +181,7 @@ else:
                 },
                 {
                   n: '03', title: 'Inject into your Code',
-                  body: <>Use the endpoint <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded font-mono text-xs">https://api.ralles.com/reasoning/verify</code> to validate all SQL strings before executing them on your server.</>
+                  body: <><code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded font-mono text-xs">POST https://reasons-for-all-backend-5211259986.us-central1.run.app/reasoning/verify</code> — pass your <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded font-mono text-xs">server_id</code> (from the dashboard URL) and the action your agent is about to perform.</>,
                 },
               ].map(step => (
                 <li key={step.n} className="flex gap-4">
@@ -243,7 +248,7 @@ else:
               <div className="p-6 space-y-5">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold px-2.5 py-1 rounded-lg text-white" style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }}>POST</span>
-                  <code className="text-slate-200 font-mono font-bold">/reasoning/verify</code>
+                  <code className="text-slate-200 font-mono font-bold text-sm">https://reasons-for-all-backend-5211259986.us-central1.run.app/reasoning/verify</code>
                 </div>
                 <p className="text-slate-400 text-sm">Verify whether a query complies with the server&apos;s extracted business policy guardrail rules.</p>
 

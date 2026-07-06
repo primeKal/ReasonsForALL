@@ -68,6 +68,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)
     """
     Verifies that the provided API key (Authorization Bearer sk-rfa-...) is valid
     and returns the associated server context.
+    Checks in-memory ACTIVE_SERVERS first, then falls back to Supabase for persistence.
     """
     token = credentials.credentials
     if not token:
@@ -81,7 +82,7 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)
             "tenant_id": "tenant_dev"
         }
 
-    # Find which server this API key belongs to
+    # 1. Check in-memory ACTIVE_SERVERS first (fastest)
     from app.state import ACTIVE_SERVERS
     for s_id, s_data in ACTIVE_SERVERS.items():
         keys = s_data.get("api_keys", [])
@@ -90,7 +91,20 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)
                 return {
                     "server_id": s_id,
                     "name": s_data["name"],
-                    "tenant_id": "tenant_active"
+                    "tenant_id": s_data.get("tenant_id", "tenant_active")
                 }
+
+    # 2. Fall back to Supabase lookup (survives restarts)
+    try:
+        from app.services import supabase_client
+        row = supabase_client.get_api_key_by_value(token)
+        if row:
+            return {
+                "server_id": row["server_key"],
+                "name": row["server_key"],
+                "tenant_id": row["tenant_id"]
+            }
+    except Exception as e:
+        logger.warning(f"Supabase API key lookup failed: {e}")
 
     raise HTTPException(status_code=401, detail="Invalid or unauthorized API key")

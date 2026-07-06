@@ -259,6 +259,62 @@ def get_text_policies_for_server(tenant_id: str, server_config_id: int) -> list:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# API Keys  (tenant_server_api_keys — persisted keys per server)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def save_api_key(tenant_id: str, server_config_id: int, server_key: str, key_id: str, key_value: str) -> dict:
+    """Persist a generated API key to Supabase so it survives restarts."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_server_api_keys"
+    record = {
+        "tenant_id": tenant_id,
+        "server_config_id": server_config_id,
+        "server_key": server_key,
+        "key_id": key_id,
+        "key_value": key_value,
+    }
+    try:
+        headers = _headers()
+        response = httpx.post(url, json=record, headers=headers, timeout=10.0)
+        response.raise_for_status()
+        rows = response.json()
+        return rows[0] if rows else record
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to save API key to Supabase: {e}")
+        return record
+
+
+def get_api_key_by_value(key_value: str) -> dict | None:
+    """Look up an API key by its value. Returns server context or None."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_server_api_keys"
+    params = {
+        "key_value": f"eq.{key_value}",
+        "select": "tenant_id,server_key,server_config_id,key_id",
+    }
+    try:
+        response = httpx.get(url, params=params, headers=_headers(), timeout=10.0)
+        response.raise_for_status()
+        rows = response.json()
+        return rows[0] if rows else None
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to look up API key from Supabase: {e}")
+        return None
+
+
+def delete_api_keys_for_server(tenant_id: str, server_config_id: int) -> None:
+    """Delete all API keys for a server (called on server deletion)."""
+    url = f"{config.SUPABASE_URL}/rest/v1/tenant_server_api_keys"
+    params = {"tenant_id": f"eq.{tenant_id}", "server_config_id": f"eq.{server_config_id}"}
+    try:
+        headers = _headers()
+        headers["Prefer"] = "return=minimal"
+        httpx.delete(url, params=params, headers=headers, timeout=10.0)
+    except Exception:
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # API Verification Logs (tenant_api_logs)
 # ─────────────────────────────────────────────────────────────────────────────
 

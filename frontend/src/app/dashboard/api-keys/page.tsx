@@ -65,14 +65,19 @@ export default function ApiKeysPage() {
       <div className="mt-8 p-6 rounded-xl border border-white/5 bg-slate-950/40 backdrop-blur-md">
         <h3 className="text-lg font-bold mb-2 text-white">How to use API keys</h3>
         <p className="text-sm text-slate-400 mb-4">
-          When sending real-time transactional payloads to the <code className="bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-violet-400 font-mono">/reasoning/verify</code> endpoint, attach the API key in the Authorization header:
+          Pass the API key as a Bearer token. The <code className="bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-violet-400 font-mono">server_id</code> is your server&apos;s key visible in the dashboard URL (<code className="bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-violet-400 font-mono">/dashboard/servers/&#123;server_id&#125;</code>):
         </p>
         <pre className="p-4 rounded-lg bg-zinc-950 text-violet-300 overflow-x-auto text-sm border border-white/5 font-mono">
           <code>
-            {`curl -X POST https://api.ralles.com/v1/reasoning/verify \\
-  -H "Authorization: Bearer sk-live-..." \\
+            {`curl -X POST https://reasons-for-all-backend-5211259986.us-central1.run.app/reasoning/verify \\
+  -H "Authorization: Bearer sk-rfa-..." \\
   -H "Content-Type: application/json" \\
-  -d '{"agent_intent": "create_user", "payload": {"email": "test@example.com"}}'`}
+  -d '{
+    "server_id": "your-server-key",
+    "agent_intent": "DELETE FROM menu_items WHERE id = 5",
+    "payload": { "user_role": "customer" },
+    "include_details": true
+  }'`}
           </code>
         </pre>
       </div>
