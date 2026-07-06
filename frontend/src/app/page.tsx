@@ -93,16 +93,16 @@ export default function LandingPage() {
         <section className="flex flex-col items-center justify-center px-6 lg:px-8 text-center pt-28 pb-24 relative overflow-hidden">
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-4.5 py-1.5 text-xs font-bold text-violet-300 mb-8 backdrop-blur-sm shadow-inner">
             <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-ping"></span>
-            <span>Ralles — Your Reasoning Assistant</span>
+            <span>Ralles — Multi-Agent Business Logic Guardrails</span>
           </div>
           
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight max-w-5xl mx-auto mb-8 text-white leading-[1.15]">
-            Deterministic Guardrails for <br className="hidden md:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">Autonomous AI Agents</span>
+            One Source of Truth for <br className="hidden md:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-400">Your Business Logic</span>
           </h1>
           
           <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-            We use state-of-the-art multi-agent systems and logical associations to provide accurate and hallucination-free reasoning and query guardrails. Ralles maps your database schemas to logic structures and intercepts agent intents to enforce zero-trust policies.
+            Ralles (<em>Reasons for All</em>) is a multi-agent system that reads your database schema, extracts the business rules buried inside it, and builds a centralized guardrail server — so every AI agent in your stack enforces the same logic, automatically.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto sm:max-w-none mb-16">
@@ -149,7 +149,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="space-y-3 flex-1 pt-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Select Agent intent</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Select a query to test</span>
                   <div className="space-y-2">
                     {mockQueries[activeTab].map((item, idx) => (
                       <button
@@ -182,7 +182,7 @@ export default function LandingPage() {
                   {/* Terminal Body */}
                   <div className="p-6 font-mono text-xs space-y-4 flex-1 overflow-y-auto">
                     <div>
-                      <span className="text-slate-500 block mb-1">&gt; INCOMING INTENT VERIFICATION REQUEST:</span>
+                      <span className="text-slate-500 block mb-1">&gt; GUARDRAIL VERIFICATION REQUEST:</span>
                       <code className="text-violet-300 block bg-slate-900/60 p-3 rounded-lg border border-white/5 italic">
                         "{currentDemo.query}"
                       </code>
@@ -362,7 +362,7 @@ export default function LandingPage() {
                 How Ralles Works
               </h2>
               <p className="text-slate-400 max-w-2xl mx-auto text-base">
-                From raw database schema to deterministic AI guardrails in five automated steps.
+                Connect your database and Ralles does the rest. A cooperative multi-agent pipeline extracts your schema, infers your business rules, and sets up a live guardrail server your AI agents can validate against.
               </p>
             </div>
 
@@ -373,7 +373,7 @@ export default function LandingPage() {
                 style={{ background: 'linear-gradient(90deg, #7c3aed22, #7c3aed88, #6366f188, #0ea5e988, #0ea5e922)' }}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 lg:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 mb-8">
                 {[
                   {
                     step: '01',
@@ -381,39 +381,31 @@ export default function LandingPage() {
                     color: 'from-violet-600 to-violet-500',
                     glow: 'rgba(124,58,237,0.3)',
                     title: 'Connect Database',
-                    desc: 'Paste your DB connection string — PostgreSQL, MySQL, or SQL Server. Ralles never stores row data, only the structural schema.',
+                    desc: 'Paste your DB connection string. Ralles connects and reads only the structural schema — never your row data.',
                   },
                   {
                     step: '02',
-                    icon: '🤖',
+                    icon: '📐',
                     color: 'from-indigo-600 to-indigo-500',
                     glow: 'rgba(99,102,241,0.3)',
-                    title: 'Multi-Agent Parsing',
-                    desc: 'A cooperative agent swarm inspects relations, constraints, triggers, and functions to extract business semantics automatically.',
+                    title: 'Extract Tables & FKs',
+                    desc: 'Extracts all tables, foreign key relationships, triggers, and functions from your specified schema.',
                   },
                   {
                     step: '03',
-                    icon: '🕸️',
+                    icon: '🤖',
                     color: 'from-blue-600 to-cyan-500',
                     glow: 'rgba(59,130,246,0.3)',
-                    title: 'Association Mapping',
-                    desc: 'Business entities and guardrail rules are mapped into a logical association graph stored in your private tenant memory.',
+                    title: 'Concept Models',
+                    desc: 'LLM synthesizes all schema data into concept models — the equivalents of Classes, Entities, or Tables in your business domain.',
                   },
                   {
                     step: '04',
-                    icon: '🧠',
+                    icon: '🔗',
                     color: 'from-cyan-600 to-teal-500',
                     glow: 'rgba(6,182,212,0.3)',
-                    title: 'Association Graph',
-                    desc: 'Entities and associations form an interactive graph you can explore and export to any graph database.',
-                  },
-                  {
-                    step: '05',
-                    icon: '🛡️',
-                    color: 'from-emerald-600 to-green-500',
-                    glow: 'rgba(16,185,129,0.3)',
-                    title: 'Runtime Guardrails',
-                    desc: 'Every AI agent intent is verified against the logical association map in < 5ms. Tautologies are permitted; all others are blocked.',
+                    title: 'Is-A & Is-Like',
+                    desc: 'LLM extracts hierarchical and similarity relationships between concept models (e.g. Waiter is-a Employee).',
                   },
                 ].map((item, i) => (
                   <div key={i} className="flex flex-col items-center text-center group">
@@ -449,34 +441,65 @@ export default function LandingPage() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Flow arrows summary bar */}
-            <div className="mt-16 rounded-2xl border border-white/5 bg-slate-900/40 backdrop-blur-sm p-6 overflow-x-auto">
-              <div className="flex items-center gap-0 min-w-max mx-auto w-fit">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4">
                 {[
-                  { label: 'Your DB', icon: '🗄️', sublabel: 'postgres / mysql' },
-                  { label: 'Schema Parser', icon: '🤖', sublabel: 'multi-agent swarm' },
-                  { label: 'Association Map', icon: '📐', sublabel: 'logical memory' },
-                  { label: 'Association Graph', icon: '🕸️', sublabel: 'explore & export' },
-                  { label: 'Reasoning Engine', icon: '🧠', sublabel: '< 5ms guardrail check' },
-                  { label: 'AI Agent', icon: '✅', sublabel: 'Permitted or Blocked' },
-                ].map((node, i, arr) => (
-                  <div key={i} className="flex items-center">
-                    <div className="flex flex-col items-center gap-1.5 px-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 border border-white/8 flex items-center justify-center text-lg">
-                        {node.icon}
+                  {
+                    step: '05',
+                    icon: '🕸️',
+                    color: 'from-purple-600 to-fuchsia-500',
+                    glow: 'rgba(168,85,247,0.3)',
+                    title: 'Has & Aggregate Rules',
+                    desc: 'Extracts cardinality and composition relationships — e.g. a Customer has many Orders, an Order aggregates OrderItems.',
+                  },
+                  {
+                    step: '06',
+                    icon: '💻',
+                    color: 'from-rose-600 to-pink-500',
+                    glow: 'rgba(244,63,94,0.3)',
+                    title: 'Repo Code Supplement',
+                    desc: 'Optionally complements the logic with an LLM call over your repo source code for even richer business context.',
+                  },
+                  {
+                    step: '07',
+                    icon: '💾',
+                    color: 'from-amber-600 to-orange-500',
+                    glow: 'rgba(245,158,11,0.3)',
+                    title: 'Save to Quad Store',
+                    desc: 'All concepts, rules, and relationships are saved into a Supabase quad-typed table — your private guardrail memory.',
+                  },
+                  {
+                    step: '08',
+                    icon: '🛡️',
+                    color: 'from-emerald-600 to-green-500',
+                    glow: 'rgba(16,185,129,0.3)',
+                    title: 'Query Your Server',
+                    desc: 'Ask natural-language questions like "Can a customer delete other people\'s reviews?" — via dashboard or API.',
+                  },
+                ].map((item, i) => (
+                  <div key={i} className="flex flex-col items-center text-center group">
+                    <div
+                      className="relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl mb-5 transition-transform group-hover:-translate-y-1 group-hover:scale-105"
+                      style={{ boxShadow: `0 0 24px ${item.glow}` }}
+                    >
+                      <div
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+                        style={{ background: `linear-gradient(135deg, var(--tw-gradient-from, #7c3aed), var(--tw-gradient-to, #6366f1))` }}
+                      >
+                        {item.icon}
                       </div>
-                      <span className="text-white text-[10px] font-bold whitespace-nowrap">{node.label}</span>
-                      <span className="text-slate-500 text-[9px] whitespace-nowrap">{node.sublabel}</span>
+                      <div
+                        className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white border border-slate-950"
+                        style={{ background: 'linear-gradient(135deg,#7c3aed,#6366f1)' }}
+                      >
+                        {i + 5}
+                      </div>
                     </div>
-                    {i < arr.length - 1 && (
-                      <div className="flex flex-col items-center -mx-1">
-                        <svg width="28" height="12" viewBox="0 0 28 12">
-                          <path d="M0 6 H22 M18 2 L26 6 L18 10" stroke="rgba(139,92,246,0.6)" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </div>
-                    )}
+                    <h3 className="font-bold text-white text-base mb-2 group-hover:text-violet-300 transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-slate-400 text-xs leading-relaxed max-w-[180px]">
+                      {item.desc}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -529,6 +552,39 @@ export default function LandingPage() {
                   </ul>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </section>
+        {/* Future Roadmap Section */}
+        <section className="py-20 px-6 lg:px-14 border-t border-white/5 bg-slate-900/20">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/5 px-4 py-1.5 text-xs font-bold text-violet-300 mb-6">
+                <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" />
+                What&apos;s Coming
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-white">Future Roadmap</h2>
+              <p className="text-slate-400 max-w-2xl mx-auto text-sm">We&apos;re just getting started. Here&apos;s what we&apos;re building next for Ralles.</p>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { icon: '🤝', title: 'Agent-to-Agent Communication', desc: 'Enable Ralles servers to communicate and share guardrail context across multi-agent pipelines.' },
+                { icon: '🔌', title: 'MCP Server Support', desc: 'Native Model Context Protocol server capabilities so any MCP-compatible agent can plug directly into Ralles.' },
+                { icon: '🧮', title: 'LORP-Based Logical Reasoning', desc: 'Enhanced guardrail engine based on the LORP paper — supporting open and closed world assumption modes, configurable from the dashboard.' },
+                { icon: '🐍', title: 'Python Package', desc: 'A simple pip-installable package so Python-based AI projects can query Ralles with a single import and one line of code.' },
+                { icon: '📑', title: 'Richer Text Rules Extraction', desc: 'More comprehensive extraction of natural-language business rules from schema, triggers, and source code.' },
+                { icon: '⚙️', title: 'Extraction Config UI', desc: 'A visual dashboard to configure which tables, schemas, and functions are included in each guardrail extraction run.' },
+                { icon: '🔄', title: 'Re-Sync UI', desc: 'A one-click interface to re-sync your database connection and refresh guardrail data when your schema evolves.' },
+                { icon: '🌐', title: 'Expanded Public Site', desc: 'More content explaining what Ralles is, the problem it solves, real use-cases, and step-by-step onboarding guides.' },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4 p-5 rounded-xl border border-white/5 bg-slate-950/50 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-xl flex-shrink-0 group-hover:scale-105 transition-transform">{item.icon}</div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm mb-1">{item.title}</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
