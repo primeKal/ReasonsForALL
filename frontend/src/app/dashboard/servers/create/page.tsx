@@ -40,7 +40,7 @@ const EXTRACTION_STEPS = [
   "Extracting relationships & logical constraints (Rules Agent)",
   "Identifying class hierarchies & inheritance (Hierarchy Agent)",
   "Augmenting logic patterns from codebase (Git Agent)",
-  "Compiling owlready2 ontology & synthesizing policies"
+  "Compiling & synthesizing policies"
 ];
 
 
