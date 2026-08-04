@@ -78,7 +78,7 @@ export default function LandingPage() {
           <a href="#features" className="hover:text-violet-400 transition-colors">Features</a>
           <a href="#playground" className="hover:text-violet-400 transition-colors">Interactive Demo</a>
           <a href="#how-it-works" className="hover:text-violet-400 transition-colors">How it Works</a>
-          <a href="#pricing" className="hover:text-violet-400 transition-colors">Pricing</a>
+          <a href="https://github.com/primeKal/ReasonsForALL" target="_blank" rel="noopener noreferrer" className="hover:text-violet-400 transition-colors">GitHub</a>
         </nav>
         <nav className="flex items-center gap-4">
           <Link href="/login" className="text-sm font-semibold text-slate-400 hover:text-white transition-colors hidden sm:block">Sign In</Link>
@@ -105,10 +105,10 @@ export default function LandingPage() {
             Ralles (<em>Reasons for All</em>) is a multi-agent system that reads your database schema, extracts the business rules buried inside it, and builds a centralized guardrail server — so every AI agent in your stack enforces the same logic, automatically.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto sm:max-w-none mb-16">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto sm:max-w-none mb-6">
             <Link href="/login">
               <Button size="lg" className="rounded-xl px-8 h-12 text-base font-bold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-xl shadow-violet-500/20 border border-violet-500/30 hover:-translate-y-1 transition-all text-white w-full sm:w-auto">
-                Start Free Trial
+                Sign Up
               </Button>
             </Link>
             <Link href="/dashboard/servers">
@@ -116,6 +116,33 @@ export default function LandingPage() {
                 Enter Dashboard
               </Button>
             </Link>
+            <a href="https://github.com/primeKal/ReasonsForALL" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="rounded-xl px-8 h-12 text-base font-bold backdrop-blur-md bg-slate-900 border-violet-500/30 hover:border-violet-500/60 text-violet-300 hover:text-white transition-all w-full flex items-center justify-center gap-2">
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                </svg>
+                GitHub Repository
+              </Button>
+            </a>
+          </div>
+
+          {/* Quick Clone / Fork Terminal */}
+          <div className="w-full max-w-xl mx-auto mt-8 p-5 rounded-2xl border border-white/5 bg-slate-950/60 backdrop-blur-md text-left font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
+              <span className="text-slate-500 uppercase tracking-widest text-[9px] font-bold">Clone & Run Locally</span>
+              <span className="text-[9px] text-slate-500">Fork on GitHub to contribute</span>
+            </div>
+            <div className="space-y-1.5 text-slate-300">
+              <p className="text-slate-500"># 1. Clone the repository</p>
+              <div className="flex items-center justify-between bg-black/40 px-3.5 py-2.5 rounded-xl border border-white/5 select-all">
+                <code>git clone https://github.com/primeKal/ReasonsForALL.git</code>
+              </div>
+              <p className="text-slate-500 pt-2"># 2. Start the backend & frontend</p>
+              <div className="bg-black/40 px-3.5 py-2.5 rounded-xl border border-white/5">
+                <code className="block text-slate-400">cd ReasonsForALL/backend && pip install -r requirements.txt</code>
+                <code className="block text-slate-400">cd ../frontend && npm install && npm run dev</code>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -210,59 +237,6 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Feature Comparison Matrix */}
-        <section className="py-20 px-6 lg:px-14 max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-white">Compare Guardrail Architectures</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto text-sm">Why modern AI architectures need logical guardrails instead of probabilistic LLM filters.</p>
-          </div>
-
-          <div className="rounded-2xl border border-white/5 overflow-hidden shadow-xl overflow-x-auto bg-slate-900/20 backdrop-blur-md">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-950 border-b border-white/10 text-slate-300">
-                <tr>
-                  <th className="px-6 py-4">Capability</th>
-                  <th className="px-6 py-4 text-violet-400 bg-violet-500/5 font-extrabold border-x border-violet-500/15">🛡️ Ralles Engine</th>
-                  <th className="px-6 py-4">Standard LLM Filters</th>
-                  <th className="px-6 py-4">Standard Vector RAG</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5 text-slate-400">
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-bold text-white">Determinism</td>
-                  <td className="px-6 py-4 font-bold text-green-400 bg-violet-500/5 border-x border-violet-500/15">100% Guaranteed</td>
-                  <td className="px-6 py-4">Probabilistic (85-92%)</td>
-                  <td className="px-6 py-4">Fuzzy Match Only</td>
-                </tr>
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-bold text-white">Hallucination Risk</td>
-                  <td className="px-6 py-4 font-bold text-green-400 bg-violet-500/5 border-x border-violet-500/15">0% (Strict Logic Proof)</td>
-                  <td className="px-6 py-4">High (prone to jailbreaks)</td>
-                  <td className="px-6 py-4">High (context confusion)</td>
-                </tr>
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-bold text-white">Evaluation Speed</td>
-                  <td className="px-6 py-4 font-bold text-white bg-violet-500/5 border-x border-violet-500/15">&lt; 5ms in-memory</td>
-                  <td className="px-6 py-4 text-red-400">Slow (800ms - 2500ms)</td>
-                  <td className="px-6 py-4">Medium (200ms - 500ms)</td>
-                </tr>
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-bold text-white">Schema Verification</td>
-                  <td className="px-6 py-4 text-green-400 bg-violet-500/5 border-x border-violet-500/15">Deep structural mapping</td>
-                  <td className="px-6 py-4">Implicit inference only</td>
-                  <td className="px-6 py-4">None</td>
-                </tr>
-                <tr className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-bold text-white">Security / Privacy</td>
-                  <td className="px-6 py-4 text-green-400 bg-violet-500/5 border-x border-violet-500/15">Stateless (No rows cached)</td>
-                  <td className="px-6 py-4">Exposes sensitive vectors</td>
-                  <td className="px-6 py-4">Requires document index copy</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </section>
 
@@ -507,54 +481,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section id="pricing" className="py-20 bg-slate-950/40 px-6 lg:px-14 border-t border-white/5">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-white">Simple, predictable pricing</h2>
-              <p className="text-slate-400 max-w-2xl mx-auto text-base">Secure your autonomous agent operations today.</p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              <Card className="border-white/5 shadow-md bg-slate-950/50 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-2xl text-white">Developer Trial</CardTitle>
-                  <CardDescription>Perfect for proof-of-concepts and exploration.</CardDescription>
-                  <div className="mt-4 text-4xl font-black text-white">$0<span className="text-lg text-slate-400 font-normal"> / 30 days</span></div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3 text-slate-400 text-xs">
-                    <li className="flex items-center gap-2"><span>✓</span> PostgreSQL, MySQL, SQL Server</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Full API Logger Access</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Up to 1000 Mapped Rules</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Single-tenant memory isolation</li>
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-violet-500/40 shadow-2xl bg-slate-950/60 backdrop-blur-sm relative overflow-hidden">
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-violet-600 via-indigo-500 to-cyan-500"></div>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-2xl text-violet-400">Enterprise Premium</CardTitle>
-                      <CardDescription>For production AI agent swarms.</CardDescription>
-                    </div>
-                    <span className="bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">RECOMMENDED</span>
-                  </div>
-                  <div className="mt-4 text-4xl font-black text-white">Custom</div>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3 text-slate-400 text-xs">
-                    <li className="flex items-center gap-2"><span>✓</span> Custom Connection Drivers</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Uncapped Rule Count Mappings</li>
-                    <li className="flex items-center gap-2"><span>✓</span> Real-Time Webhook Schema Sync</li>
-                    <li className="flex items-center gap-2"><span>✓</span> High-Availability API clusters</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
         {/* Future Roadmap Section */}
         <section className="py-20 px-6 lg:px-14 border-t border-white/5 bg-slate-900/20">
           <div className="max-w-5xl mx-auto">

@@ -34,6 +34,16 @@ const STEPS = [
   },
 ];
 
+const EXTRACTION_STEPS = [
+  "Connecting to database & reflecting schema",
+  "Mapping tables to domain concepts (Concept Agent)",
+  "Extracting relationships & logical constraints (Rules Agent)",
+  "Identifying class hierarchies & inheritance (Hierarchy Agent)",
+  "Augmenting logic patterns from codebase (Git Agent)",
+  "Compiling owlready2 ontology & synthesizing policies"
+];
+
+
 export default function CreateServerWizard() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -47,6 +57,8 @@ export default function CreateServerWizard() {
   });
   const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [extractionStep, setExtractionStep] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -55,6 +67,21 @@ export default function CreateServerWizard() {
       if (!session) router.push("/login");
     });
   }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (isExtracting) {
+      setExtractionStep(0);
+      interval = setInterval(() => {
+        setExtractionStep((prev) => (prev < 5 ? prev + 1 : prev));
+      }, 3500);
+    } else {
+      setExtractionStep(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isExtracting]);
 
   const handleConnect = async () => {
     setError(null);
@@ -439,18 +466,52 @@ export default function CreateServerWizard() {
 
                 {isExtracting && (
                   <div
-                    className="p-4 rounded-xl text-sm text-center"
+                    className="p-5 rounded-xl text-sm text-left space-y-4"
                     style={{
-                      background: "rgba(99,102,241,0.08)",
-                      border: "1px solid rgba(99,102,241,0.2)",
+                      background: "rgba(99,102,241,0.05)",
+                      border: "1px solid rgba(99,102,241,0.15)",
                     }}
                   >
-                    <div className="flex items-center justify-center gap-3">
-                      <span className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
-                      <p className="text-violet-300 font-semibold">
-                        Analyzing schema & extracting business logic guardrails...
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+                        <p className="text-violet-300 font-semibold">
+                          Analyzing schema & extracting business logic guardrails...
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDetails(!showDetails)}
+                        className="text-xs text-violet-400 hover:text-violet-300 hover:underline font-bold"
+                      >
+                        {showDetails ? "Hide Steps ▴" : "Show Steps ▾"}
+                      </button>
                     </div>
+
+                    {showDetails && (
+                      <div className="border-t border-white/5 pt-3 space-y-2.5 font-mono text-[11px] text-slate-400">
+                        {EXTRACTION_STEPS.map((stepDesc, idx) => {
+                          const isDone = extractionStep > idx;
+                          const isActive = extractionStep === idx;
+                          return (
+                            <div key={idx} className="flex items-center gap-2.5">
+                              <span>
+                                {isDone ? (
+                                  <span className="text-emerald-400 font-bold">✓</span>
+                                ) : isActive ? (
+                                  <span className="w-2.5 h-2.5 border border-violet-400/30 border-t-violet-400 rounded-full animate-spin inline-block" />
+                                ) : (
+                                  <span className="text-slate-600">○</span>
+                                )}
+                              </span>
+                              <span className={isActive ? "text-violet-300 font-bold" : isDone ? "text-slate-300" : "text-slate-500"}>
+                                {stepDesc}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
