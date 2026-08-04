@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 const sidebarLinks = [
   { href: '#introduction', label: 'Introduction', icon: '📖' },
   { href: '#quickstart', label: 'Quickstart', icon: '🚀' },
+  { href: '#demo-sandbox', label: 'Demo Sandbox DB', icon: '🍔' },
   { href: '#custom-llms', label: 'Custom LLMs', icon: '🤖' },
   { href: '#dev-databases', label: 'Dev & Sandbox DBs', icon: '🗄️' },
   { href: '#api-reference', label: 'API Reference', icon: '⚡' },
@@ -198,6 +199,60 @@ else:
                 </li>
               ))}
             </ol>
+          </motion.section>
+
+          {/* Demo Sandbox */}
+          <motion.section
+            id="demo-sandbox"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+            className="space-y-5"
+          >
+            <h2 className="text-2xl font-bold text-white">Demo Sandbox DB &amp; Project</h2>
+            <p className="text-slate-400 leading-relaxed">
+              If you don&apos;t have a relational database ready, you can connect our pre-configured **Menu Management System (MMS)** sandbox database to test the extraction and logical reasoning engine.
+            </p>
+            
+            <div className="p-6 rounded-2xl space-y-4" style={cardGlass}>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">Active Sandbox</span>
+                <span className="text-slate-500 text-xs">PostgreSQL Dialect</span>
+              </div>
+              
+              <div className="space-y-3 font-mono text-xs">
+                <div>
+                  <span className="text-slate-500 block mb-1">Database Connection URI:</span>
+                  <div className="flex items-center justify-between bg-black/40 px-3.5 py-2.5 rounded-xl border border-white/5 select-all text-violet-300">
+                    <code>postgres://default:pTv75EHAJIws@ep-mute-violet-76705724-pooler.us-east-1.aws.neon.tech/mms?sslmode=require</code>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-500 block mb-1">Git Repository URL (for logic augmentation):</span>
+                  <div className="flex items-center justify-between bg-black/40 px-3.5 py-2.5 rounded-xl border border-white/5 select-all text-violet-300">
+                    <code>https://github.com/primeKal/mms_project</code>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-500 block mb-1">Deployed Web Application:</span>
+                  <a href="https://mms-project.onrender.com/" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline font-semibold">
+                    https://mms-project.onrender.com/
+                  </a>
+                </div>
+              </div>
+
+              <div className="text-slate-400 text-sm leading-relaxed border-t border-white/5 pt-4">
+                <p>
+                  <strong>How to test:</strong>
+                </p>
+                <ol className="list-decimal list-inside space-y-1 mt-2 text-xs">
+                  <li>Go to the <a href="/dashboard/servers/create" className="text-violet-400 hover:underline">Connect Database</a> wizard.</li>
+                  <li>Copy and paste the Connection URI above.</li>
+                  <li>Provide the Git Repository URL under Step 1 (optional) to let the multi-agent system extract richer logic context from the codebase.</li>
+                  <li>Once connected, clone the git repository locally or check the live app at the link above to test queries against the reasoning firewall!</li>
+                </ol>
+              </div>
+            </div>
           </motion.section>
 
           {/* Custom LLM Providers */}
