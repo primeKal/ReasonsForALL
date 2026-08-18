@@ -256,7 +256,7 @@ export default function DashboardLayout({
         className="px-6 lg:px-14 py-5 flex items-center justify-between text-xs text-slate-600"
         style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
       >
-        <span>© 2026 Ralles Inc.</span>
+        <span>© 2026 Ralles</span>
         <div className="flex gap-4">
           <Link href="/" className="hover:text-slate-400 transition-colors">
             Landing Page

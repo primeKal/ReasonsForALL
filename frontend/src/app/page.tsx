@@ -520,9 +520,9 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-extrabold text-white text-xs">R</div>
-            <span className="font-bold tracking-tight text-sm text-slate-200">Ralles Inc.</span>
+            <span className="font-bold tracking-tight text-sm text-slate-200">Ralles</span>
           </div>
-          <p className="text-xs text-slate-500">© 2026 Ralles Inc. All rights reserved. Reasons for Alles.</p>
+          <p className="text-xs text-slate-500">© 2026 Ralles. Open-source under MIT License. Created for Kaggle Submission.</p>
         </div>
       </footer>
     </div>

@@ -428,7 +428,7 @@ export default function LoginPage() {
               🛡️ SOC 2 compliant
             </span>
             <span className="flex items-center gap-1.5">
-              ⚡ 30-day free trial
+              ⚡ Free & Open Source
             </span>
           </div>
         </div>
@@ -436,7 +436,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-6 px-6 text-center text-xs text-slate-600">
-        © 2026 Ralles Inc. All rights reserved. ·{" "}
+        © 2026 Ralles. All rights reserved. ·{" "}
         <Link
           href="/privacy"
           className="hover:text-slate-400 transition-colors"

@@ -5,13 +5,13 @@ test.describe('ReasonsForALL UI Tests', () => {
     await page.goto('/');
     
     // Check for branding text
-    await expect(page.locator('text=ReasonsForALL').first()).toBeVisible();
+    await expect(page.locator('text=Ralles').first()).toBeVisible();
     
     // Check for hero text
     await expect(page.locator('text=Turn unpredictable agents into')).toBeVisible();
     
     // Check for CTA
-    const getStartedBtn = page.locator('text=Start 30-Day Free Trial');
+    const getStartedBtn = page.locator('text=Get Started');
     await expect(getStartedBtn).toBeVisible();
   });
 

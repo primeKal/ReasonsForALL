@@ -4,7 +4,7 @@ export default function RequestsPage() {
   try {
     requests = JSON.parse(
       typeof window !== "undefined"
-        ? localStorage.getItem("ralles_requests") || "[]"
+        ? localStorage.getItem("reasonsforall_requests") || "[]"
         : "[]",
     );
   } catch (e) {

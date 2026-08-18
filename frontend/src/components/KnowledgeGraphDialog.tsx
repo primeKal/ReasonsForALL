@@ -153,7 +153,7 @@ function buildTTL(
   rules: Rule[],
 ): string {
   const safe = (s: string) => s.replace(/[^a-zA-Z0-9_]/g, "_");
-  const base = `https://ralles.ai/logical-map/${safe(serverName)}#`;
+  const base = `https://reasonsforall.example/logical-map/${safe(serverName)}#`;
 
   const lines: string[] = [
     `@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .`,

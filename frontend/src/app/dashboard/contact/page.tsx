@@ -11,7 +11,7 @@ export default function ContactPage() {
     e.preventDefault();
     // persist to localStorage as a minimal requests store
     const existing = JSON.parse(
-      localStorage.getItem("ralles_requests") || "[]",
+      localStorage.getItem("reasonsforall_requests") || "[]",
     );
     existing.unshift({
       id: Date.now(),
@@ -20,7 +20,7 @@ export default function ContactPage() {
       status: "submitted",
       created_at: new Date().toISOString(),
     });
-    localStorage.setItem("ralles_requests", JSON.stringify(existing));
+    localStorage.setItem("reasonsforall_requests", JSON.stringify(existing));
     router.push("/dashboard/requests");
   };
 

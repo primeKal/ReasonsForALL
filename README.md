@@ -25,7 +25,7 @@ Standard approaches — prompt engineering, LLM content filters, or RAG-based se
 
 ## The Solution
 
-**Ralles** is a multi-agent SaaS platform that:
+**Ralles** is an open-source multi-agent platform that:
 
 1. **Reads your database schema** (PostgreSQL, MySQL, SQL Server) — structure only, never row data.
 2. **Extracts your business rules** using a cooperative agent swarm powered by Google's ADK.
@@ -165,10 +165,6 @@ SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASSWORD=
 SMTP_SENDER=noreply@yourapp.com
-
-# Optional: Stripe billing
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
 
 # Optional: Allowed frontend origins (comma-separated)
 ALLOWED_ORIGINS=http://localhost:3000
@@ -342,4 +338,4 @@ The `backend/Dockerfile` targets port `8080` for Cloud Run compatibility.
 
 ## License
 
-© 2026 Ralles Inc. — *Reasons for All.* All rights reserved.
+© 2026 Ralles — *Reasons for All.* Released under the MIT License.

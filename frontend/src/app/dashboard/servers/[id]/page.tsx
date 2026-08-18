@@ -47,7 +47,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   useEffect(() => {
     if (server && id) {
       const isLogical = reasoningMode === 'logical'
-      const storageKey = `ralles_chat_messages_${id}_${reasoningMode}`
+      const storageKey = `reasonsforall_chat_messages_${id}_${reasoningMode}`
       const saved = localStorage.getItem(storageKey)
       if (saved) {
         try {
@@ -74,7 +74,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
 
   useEffect(() => {
     if (id && chatMessages.length > 0) {
-      const storageKey = `ralles_chat_messages_${id}_${reasoningMode}`
+      const storageKey = `reasonsforall_chat_messages_${id}_${reasoningMode}`
       localStorage.setItem(storageKey, JSON.stringify(chatMessages))
     }
   }, [chatMessages, id, reasoningMode])
@@ -82,7 +82,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
   const handleClearChat = () => {
     if (!server || !id) return
     const isLogical = reasoningMode === 'logical'
-    const storageKey = `ralles_chat_messages_${id}_${reasoningMode}`
+    const storageKey = `reasonsforall_chat_messages_${id}_${reasoningMode}`
     localStorage.removeItem(storageKey)
     setChatMessages([
       {
@@ -458,12 +458,12 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
-                        <span>💬</span> Ralles Reasoning Assistant
+                        <span>💬</span> Ralles Assistant
                       </CardTitle>
                       <CardDescription className="mt-1">
                         {reasoningMode === 'text'
                           ? 'Text Policy Mode — queries are evaluated against extracted business policies using logical analysis.'
-                          : 'Logical Reasoning Mode (Beta) — formal description-logic inference using Ralles reasoning engine.'}
+                          : 'Logical Reasoning Mode (Beta) — formal description-logic inference using the logical reasoning engine.'}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -1031,10 +1031,10 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <div className="space-y-2">
                     <Label className="font-semibold text-foreground">Server Endpoint</Label>
                     <div className="flex gap-2">
-                      <Input readOnly value="https://api.ralles.com/reasoning/verify" className="font-mono text-sm bg-slate-900/80 border-white/10 text-white focus:border-violet-500/50 h-11" />
+                      <Input readOnly value="https://api.ralles.example/reasoning/verify" className="font-mono text-sm bg-slate-900/80 border-white/10 text-white focus:border-violet-500/50 h-11" />
                       <Button 
                         onClick={() => {
-                          navigator.clipboard.writeText("https://api.ralles.com/reasoning/verify")
+                          navigator.clipboard.writeText("https://api.ralles.example/reasoning/verify")
                           setCopiedEndpoint(true)
                           setTimeout(() => setCopiedEndpoint(false), 2000)
                         }}
@@ -1103,7 +1103,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                       width="100%" 
                       height="100%" 
                       src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
-                      title="Ralles Integration Demo" 
+                      title="ReasonsForALL Integration Demo" 
                       frameBorder="0" 
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                       allowFullScreen
@@ -1112,7 +1112,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   
                   <div>
                     <h3 className="text-sm font-semibold mb-2">Endpoint URL</h3>
-                    <div className="bg-muted p-3 rounded-md font-mono text-sm text-primary">POST https://api.ralles.com/reasoning/verify</div>
+                     <div className="bg-muted p-3 rounded-md font-mono text-sm text-primary">POST https://api.ralles.example/reasoning/verify</div>
                   </div>
 
                   <div>
@@ -1170,7 +1170,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     <select className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                       <option>Strict (Block all unknown queries)</option>
                       <option>Lenient (Warn only)</option>
-                      <option disabled>Virtual Fetch (Premium Only)</option>
+                      <option>Virtual Fetch</option>
                     </select>
                   </div>
                   <Button variant="outline" className="border-border/60 hover:bg-muted/50">Force Schema Resync</Button>
