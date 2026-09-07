@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ralles | Deterministic AI Guardrails",
-  description: "Ralles intercepts AI agent intents and validates them against dynamic business rules extracted by cooperative multi-agent LLM systems, providing open-source logic and guardrails.",
+  title: "Ralles | Confidence-Based AI Guardrails",
+  description: "Ralles intercepts AI agent intents and evaluates them against dynamic business rules extracted by cooperative multi-agent systems, providing confidence-scored guardrails with threshold-based protection.",
   icons: {
     icon: "/icon.svg",
   },

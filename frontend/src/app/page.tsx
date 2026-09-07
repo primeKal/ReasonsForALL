@@ -151,7 +151,7 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3 text-white">Live Guardrail Simulator</h2>
-              <p className="text-slate-400 max-w-2xl mx-auto text-sm">Experience how Ralles inspects, verifies, and intercepts intents in sub-milliseconds.</p>
+              <p className="text-slate-400 max-w-2xl mx-auto text-sm">Experience how Ralles evaluates confidence scores against policy thresholds to accept or block agent intents.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
@@ -315,7 +315,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    A stateless verification layer running in under 5 milliseconds. Catches impossible actions and privilege escalations before database queries are executed.
+                    A stateless verification layer scoring confidence against defined policy thresholds. Catches unauthorized actions and privilege escalations before database queries are executed.
                   </p>
                 </CardContent>
               </Card>

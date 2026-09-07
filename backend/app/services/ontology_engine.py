@@ -583,9 +583,6 @@ class OntologyEngine:
                 owl_inference_transitions.append(
                     "Inference Verdict: **`TempQueryClass` is Consistent and Satisfiable (Top ⊤ Subsumption Transition)**")
 
-        # Simulate sub-millisecond reasoning processing time
-        time.sleep(0.002)
-
         end_time = time.perf_counter()
         inference_time_ms = (end_time - start_time) * 1000
 

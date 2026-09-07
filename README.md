@@ -30,9 +30,9 @@ Standard approaches — prompt engineering, LLM content filters, or RAG-based se
 1. **Reads your database schema** (PostgreSQL, MySQL, SQL Server) — structure only, never row data.
 2. **Extracts your business rules** using a cooperative agent swarm powered by Google's ADK.
 3. **Builds a centralised guardrail server** — a living, queryable logic memory for your AI stack.
-4. **Enforces rules in real-time** via a REST API that any agent can call before executing operations.
+4. **Enforces rules in real-time** via a REST API evaluated by a dedicated Validator Agent using confidence scores and configurable thresholds to block or accept requests.
 
-Every AI agent in your organisation checks the same guardrail server. Rules change in one place. Violations are blocked and logged automatically.
+Every AI agent in your organisation checks the same guardrail server. Rules change in one place. Violations are blocked and logged automatically based on confidence thresholds.
 
 ---
 
@@ -86,9 +86,9 @@ Every AI agent in your organisation checks the same guardrail server. Rules chan
 | **Database** | Supabase (PostgreSQL) | Multi-tenant quad-store, auth, audit logs |
 | **Auth** | Supabase Auth (JWT) + custom API keys (`sk-rfa-*`) | Human users + agent-to-server auth |
 
-### Reasoning Mode
+### Reasoning & Validation Mode
 
-Ralles evaluates guardrails using **Text Mode** — the LLM judges a natural-language query against stored plain-English business policies extracted from your schema, returning a human-readable verdict with confidence score and reasoning steps.
+Ralles evaluates guardrails using a dedicated **Validator Agent** — the agent evaluates queries and transactional payloads against stored business policies and schema rules, generating a **confidence score** (0.0 to 1.0). The system compares this score against a configurable **acceptance threshold** (default: 0.70) to block or accept the application. Decisions are accompanied by human-readable reasoning and actionable recommendations.
 
 ---
 
@@ -241,7 +241,7 @@ docker run -p 8080:8080 --env-file .env ralles-backend
 
 ## API Integration (Agent Example)
 
-Once your guardrail server is set up and an API key is generated from the dashboard:
+Once your guardrail server is set up and an API key is generated from the dashboard, autonomous agents send validation requests to the `/reasoning/verify` API:
 
 ```python
 import requests
@@ -256,23 +256,30 @@ response = requests.post(
             "user_role": "anonymous",
             "target_table": "ratings",
             "operation": "DELETE"
-        }
+        },
+        "threshold": 0.70  # Configurable acceptance threshold
     }
 )
 
 result = response.json()
 if not result["is_valid"]:
-    print("Blocked:", result["violations"])
+    print(f"Blocked (Confidence: {result['confidence_score']} < Threshold {result['threshold']}):", result["violations"])
+else:
+    print(f"Accepted (Confidence: {result['confidence_score']} >= Threshold {result['threshold']})")
 ```
 
 **Response:**
 ```json
 {
-  "is_valid": false,
-  "violations": ["Anonymous users cannot perform DELETE operations on protected tables"],
-  "inference_time_ms": 3.2,
   "agent_intent": "delete_user_record",
-  "message": "Payload validation complete."
+  "is_valid": false,
+  "verdict": "blocked",
+  "confidence_score": 0.35,
+  "threshold": 0.70,
+  "violations": ["Anonymous or unauthenticated users cannot execute data modification operations."],
+  "message": "Application blocked: confidence score (0.35) is below threshold (0.70).",
+  "description": "Request intent 'delete_user_record' was blocked with a confidence score of 35% (threshold: 70%). Identified policy issues: Anonymous or unauthenticated users cannot execute data modification operations.",
+  "recommendation": "Revise request parameters, verify user roles and permissions, or adjust transaction constraints to meet the required confidence threshold."
 }
 ```
 
@@ -294,6 +301,7 @@ ReasonsForALL/
 │   │   │   ├── reasoning.py      # /verify endpoint for agents
 │   │   │   └── server.py         # Dashboard CRUD, chat, policies
 │   │   └── services/
+│   │       ├── validator_agent.py# ValidatorAgent (confidence score & threshold evaluation)
 │   │       ├── db_extractor.py   # SQLAlchemy schema reader
 │   │       ├── gemini_service.py # LLM adapter (Gemini / OpenAI)
 │   │       ├── supabase_client.py# Supabase data layer

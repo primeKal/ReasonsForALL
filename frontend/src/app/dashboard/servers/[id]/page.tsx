@@ -442,8 +442,8 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                   <CardContent><div className="text-4xl font-bold">{server.active_policies_count} <span className="text-sm font-normal text-muted-foreground">/ {server.active_policies_limit} Limit</span></div></CardContent>
                 </Card>
                 <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
-                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Inference Time (Avg)</CardTitle></CardHeader>
-                  <CardContent><div className="text-4xl font-bold">{server.avg_inference_time_ms}<span className="text-sm font-normal text-muted-foreground">ms</span></div></CardContent>
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Confidence Threshold</CardTitle></CardHeader>
+                  <CardContent><div className="text-4xl font-bold">{server.confidence_threshold ? `${Math.round(server.confidence_threshold * 100)}%` : '70%'}<span className="text-sm font-normal text-muted-foreground ml-2">Min to Accept</span></div></CardContent>
                 </Card>
                 <Card className="bg-slate-950/40 border-white/5 shadow-lg backdrop-blur-md">
                   <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Recent Blocks</CardTitle></CardHeader>
@@ -905,7 +905,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                     </div>
                     {rules.length >= 40 && (
                       <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                        <p className="text-sm text-orange-500 font-medium">⚠️ Extraction Constraint: You have reached the optimized maximum of 40 active rules/hierarchies. Extremely large databases (like Odoo) are truncated to ensure deterministic parsing performance without rate limits.</p>
+                        <p className="text-sm text-orange-500 font-medium">⚠️ Extraction Constraint: You have reached the optimized maximum of 40 active rules/hierarchies. Extremely large databases (like Odoo) are truncated to ensure robust parsing performance without rate limits.</p>
                       </div>
                     )}
                   </>
@@ -968,7 +968,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
                           </div>
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>⏱️ {log.inference_time_ms.toFixed(1)}ms</span>
+                            <span>🎯 {log.is_valid ? 'Threshold Met' : 'Below Threshold'}</span>
                             <span>📅 {new Date(log.created_at).toLocaleString()}</span>
                             <button
                               onClick={() => setExpandedLogs(prev => ({ ...prev, [idx]: !prev[idx] }))}
@@ -1133,6 +1133,7 @@ export default function ServerDetailsPage({ params }: { params: any }) {
     "user_id": "123",
     "session_id": "abc"
   },
+  "threshold": 0.75,
   "include_details": true
 }`}
                     </pre>
@@ -1144,9 +1145,11 @@ export default function ServerDetailsPage({ params }: { params: any }) {
 {`{
   "agent_intent": "SELECT * FROM users WHERE role = 'admin'",
   "is_valid": false,
+  "verdict": "blocked",
+  "confidence_score": 0.35,
+  "threshold": 0.75,
   "violations": ["RoleAdminRequiredPolicy"],
-  "inference_time_ms": 3.2,
-  "message": "Payload validation complete.",
+  "message": "Application blocked: confidence score (0.35) is below threshold (0.75).",
   "description": "Query blocked due to policy violations: RoleAdminRequiredPolicy.",
   "recommendation": "Revise transaction joins, ensure authentication contexts are supplied, or verify user role permissions."
 }`}

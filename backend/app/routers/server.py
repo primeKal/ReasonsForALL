@@ -126,7 +126,8 @@ def get_server_overview(server_id: str):
         "status": server["status"],
         "active_policies_count": len(server["rules"]),
         "active_policies_limit": 40,
-        "avg_inference_time_ms": 3.2,
+        "confidence_threshold": 0.70,
+        "avg_confidence_score": 0.94,
         "recent_blocks": 12,
         "example_statement": server.get("example_statement", "A Waiter is a subclass of Employee. Waiters are disjoint from Buyers."),
         "llm_provider": server.get("llm_provider", "gemini"),
@@ -484,20 +485,21 @@ def server_chat(server_id: str, request: ChatMessageRequest):
 
         is_allowed = result.get("is_allowed")
         verdict = result.get("verdict_label", "unclear")
-        confidence = result.get("confidence", 0.0)
+        confidence = float(result.get("confidence", 0.0))
+        threshold = 0.70  # Standard acceptance threshold
         summary = result.get("summary", "")
         violated = result.get("violated_policies", [])
         supporting = result.get("supporting_policies", [])
         steps = result.get("analysis_steps", [])
 
         logger.info(
-            f"[Step 4] Text verdict: {verdict} | confidence: {confidence}")
+            f"[Step 4] Text verdict: {verdict} | confidence: {confidence} | threshold: {threshold}")
 
-        # Verdict → is_valid mapping
-        is_valid = (is_allowed is True) or (
-            verdict in ("allowed", "conditional"))
+        # Verdict based on confidence score and threshold
+        is_valid = (confidence >= threshold) and (is_allowed is not False) and (verdict != "blocked") and (len(violated) == 0)
+        verdict = "allowed" if is_valid else "blocked"
 
-        # Trigger email alert for blocked risky requests (LLM judge)
+        # Trigger email alert for blocked risky requests
         if not is_valid:
             try:
                 user_id = server["tenant_id"].replace("tenant_", "")
@@ -534,12 +536,13 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             policies_text = "\n**Active Business Policies Checked:** " + \
                 str(len(policies)) + "\n"
 
-        verdict_emoji = {"allowed": "✅", "blocked": "🚫",
-                         "conditional": "⚠️", "unclear": "❓"}.get(verdict, "❓")
+        verdict_status = "ACCEPTED" if is_valid else "BLOCKED"
+        verdict_emoji = "✅" if is_valid else "🚫"
         confidence_pct = f"{int(confidence * 100)}%"
+        threshold_pct = f"{int(threshold * 100)}%"
 
         explanation = (
-            f"{verdict_emoji} **Text Policy Analysis — {verdict.upper()}** (Confidence: {confidence_pct})\n\n"
+            f"{verdict_emoji} **Policy Evaluation — {verdict_status}** (Confidence: {confidence_pct} vs Threshold: {threshold_pct})\n\n"
             f"### 💬 1. User Query\n> \"{request.message}\"\n\n"
             f"### 📋 2. Policy Evaluation\n"
             f"*{summary}*\n"
@@ -549,7 +552,7 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             f"### 🔍 3. Reasoning Steps\n"
             f"{steps_text}\n"
             f"### 🎯 4. Verdict\n"
-            f"**{verdict.upper()}** — {'Action is permitted under active policies.' if is_valid else 'Action is blocked or restricted by active policies.'}"
+            f"**{verdict_status}** — {'Request meets the confidence threshold and complies with active policies.' if is_valid else f'Request blocked: confidence score ({confidence_pct}) is below the acceptance threshold ({threshold_pct}) or violated active policies.'}"
         )
 
         return {
@@ -649,3 +652,74 @@ def server_chat(server_id: str, request: ChatMessageRequest):
             "policies_checked": len(quads),
         }
     }
+
+
+class ServerDirectVerifyRequest(BaseModel):
+    agent_intent: str
+    payload: Dict = {}
+    threshold: float | None = 0.70
+    include_details: bool | None = False
+
+
+@router.post("/{server_id}/verify")
+@router.post("/{server_id}/validate")
+def server_direct_verify(server_id: str, request: ServerDirectVerifyRequest):
+    """
+    Direct API to validate incoming AI agent requests for a specific server using ValidatorAgent.
+    Computes a confidence score and applies a threshold to block or accept the application.
+    """
+    from app.services.validator_agent import ValidatorAgent
+    from app.services.gemini_service import GeminiService
+
+    server = _get_or_hydrate_server(server_id)
+    _ensure_rules_loaded(server)
+
+    raw_policies = supabase_client.get_text_policies_for_server(
+        server["tenant_id"], server["server_config_id"]
+    )
+    policies = [
+        {"title": p.get("title", ""), "body": p.get("body", ""), "source_type": p.get("source_type", "inferred")}
+        for p in (raw_policies or [])
+    ]
+
+    llm_key = (server.get("llm_api_key") or "").strip()
+    gemini_svc = GeminiService(api_key=llm_key, provider=server.get("llm_provider", "gemini")) if llm_key else GeminiService()
+    validator = ValidatorAgent(gemini_service=gemini_svc)
+
+    threshold = request.threshold if request.threshold is not None else 0.70
+    validation_result = validator.validate(
+        agent_intent=request.agent_intent,
+        payload_data=request.payload,
+        quads=server["rules"],
+        policies=policies,
+        threshold=threshold
+    )
+
+    try:
+        supabase_client.save_api_log(
+            tenant_id=server["tenant_id"],
+            server_config_id=server["server_config_id"],
+            agent_intent=request.agent_intent,
+            payload=request.payload,
+            is_valid=validation_result["is_valid"],
+            violations=validation_result["violations"],
+            inference_time_ms=0.0,
+        )
+    except Exception as log_err:
+        logger.warning(f"Failed to log server direct verify request: {log_err}")
+
+    response_data = {
+        "agent_intent": request.agent_intent,
+        "is_valid": validation_result["is_valid"],
+        "verdict": validation_result["verdict"],
+        "confidence_score": validation_result["confidence_score"],
+        "threshold": validation_result["threshold"],
+        "violations": validation_result["violations"],
+        "message": validation_result["message"],
+        "description": validation_result["description"],
+        "recommendation": validation_result["recommendation"],
+    }
+    if request.include_details:
+        response_data["evaluation_breakdown"] = validation_result.get("evaluation_breakdown", {})
+
+    return response_data

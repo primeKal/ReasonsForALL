@@ -187,6 +187,6 @@ def validated_query_tool(sql_query: str) -> str:
 
 ## 4. Key Advantages of the ReasonsForALL Multi-Agent Setup
 
-1. **Deterministic Security**: Multi-agent systems can bypass typical vector-based guardrails through prompt injection. ReasonsForALL uses formal Description Logics (TBox) to enforce deterministic security that LLMs cannot jailbreak.
+1. **Confidence-Based Policy Enforcement**: Multi-agent systems can bypass typical vector-based guardrails through prompt injection. ReasonsForALL uses formal business logic and confidence scoring against configurable thresholds to block or accept requests, ensuring robust boundaries that LLMs cannot circumvent.
 2. **Self-Healing Agents**: By feeding the semantic explanation and recommendation (`description` and `recommendation`) back to the LLM agent upon a block, the agent can understand *why* its database schema join or query was logical nonsense or out-of-bounds, self-correcting the query in the next execution turn without human developer intervention.
 3. **Decentralized Policies**: Keep your guardrail policies isolated within ReasonsForALL's semantic dashboard, avoiding hardcoding intricate schema-validation rules inside agent prompt systems.

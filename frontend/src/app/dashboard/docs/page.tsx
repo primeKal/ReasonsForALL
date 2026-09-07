@@ -55,6 +55,7 @@ export default function DocsPage() {
       "table": "menu_items",
       "operation": "delete"
     },
+    "threshold": 0.70,
     "include_details": true
   }'`,
     langchain: `import requests
@@ -75,6 +76,7 @@ payload = {
         "table": "menu_items",
         "operation": "delete"
     },
+    "threshold": 0.70,  # Required confidence threshold to accept the request
     "include_details": True
 }
 
@@ -83,7 +85,7 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Validate with Ralles before executing
+# Validate with Ralles ValidatorAgent before executing
 response = requests.post(
     f"{BACKEND_URL}/reasoning/verify",
     json=payload,
@@ -92,12 +94,14 @@ response = requests.post(
 result = response.json()
 
 if result.get("is_valid"):
-    print("Allowed: proceeding with database operation.")
+    print(f"Accepted (Confidence: {result.get('confidence_score')} >= Threshold {result.get('threshold')}): proceeding.")
 else:
     description = result.get("description", "Policy violation")
     recommendation = result.get("recommendation", "")
+    confidence = result.get("confidence_score")
+    threshold = result.get("threshold")
     raise PermissionError(
-        f"Guardrail Blocked: {description}\\nRecommendation: {recommendation}"
+        f"Guardrail Blocked (Confidence: {confidence} < Threshold {threshold}): {description}\\nRecommendation: {recommendation}"
     )`
   }
 

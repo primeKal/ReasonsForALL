@@ -6,7 +6,7 @@ Target Environment: Antigravity AI Engine
 Project Structure: Decoupled Monorepo (/backend & /frontend)
 
 🧭 1. OVERVIEW & CORE VALUE PROPOSITION
-The Multi-Tenant Ontology Guardrail SaaS provides an advanced semantic logic and inference verification layer designed to turn unpredictable, autonomous AI agents into deterministic decision-makers. In production AI environments, agents operating directly over raw relational schemas or natural language layers frequently experience "hallu-relation"—inventing non-existent business connections, generating illegal database operations, or bypassing hidden corporate data compliance logic.
+The Multi-Tenant Ontology Guardrail SaaS provides an advanced semantic logic and inference verification layer designed to evaluate unpredictable autonomous AI agent actions against business policy guardrails using confidence scoring and threshold-based enforcement. In production AI environments, agents operating directly over raw relational schemas or natural language layers frequently experience "hallu-relation"—inventing non-existent business connections, generating illegal database operations, or bypassing hidden corporate data compliance logic.
 
 By intercepting agent intents and validating them against an explicit Web Ontology Language (OWL) knowledge base programmatically extracted from relational structures, this system acts as a real-time logical firewall.
 
@@ -15,7 +15,7 @@ Unlike legacy semantic architectures that require massive, permanently running g
 
 Stateless Rules Layer ($T\text{Box}$): Relational schema architecture definitions (tables, relationships, unique constraints) are automatically discovered, mapped to formal logic axioms, and stored as a flattened, high-speed triple index in a unified PostgreSQL backend under a strict partition key (tenant_id).
 
-Live Payload Instances ($A\text{Box}$): Real-time transactional record instances are never cached or stored in a bloated centralized graph database. Instead, the calling environment or AI Agent passes current transaction state parameters directly within the incoming API payload. The Python backend dynamically re-hydrates the ontological blueprint in application memory, runs rapid Description Logic (DL) validation via the bundled reasoner, and tears down the graph instance context in single-digit milliseconds.
+Live Payload Instances ($A\text{Box}$): Real-time transactional record instances are never cached or stored in a bloated centralized graph database. Instead, the calling environment or AI Agent passes current transaction state parameters directly within the incoming API payload. The Python backend dynamically evaluates compliance via the bundled ValidatorAgent against the ontological blueprint, computing a confidence score and using a threshold to block or accept the application.
 
 📁 2. REPOSITORY DIRECTORY STRUCTURE
 The project workspace is organized into two primary directory blocks to ensure clean operational isolation and ease of parsing for the Antigravity engine.
@@ -43,14 +43,14 @@ The global database layer, hosted within Supabase (PostgreSQL), uses explicit si
 
 Profiles Table: Automatically extends the core authentication framework. It collects, maps, and stores non-sensitive user metadata including full names and registered company names to provide multi-tenant enterprise isolation context.
 Tenant Configurations Table: Houses the core optimization and system constraint settings for each account. It establishes parameters like the maximum business rules caps, context evaluation profiles, and the current trial expiration state, adjusting active server capabilities dynamically based on tier rights.
-Tenant Quad-Store Table: Functions as the multi-tenant compressed triple-store index. It stores all auto-generated schema rules ($T\text{Box}$) as flat, high-speed relational rows (Subject, Predicate, Object) separated strictly by an indexed tenant_id and structural true/false flags to enable sub-millisecond retrieval.
+Tenant Quad-Store Table: Functions as the multi-tenant compressed triple-store index. It stores all auto-generated schema rules ($T\text{Box}$) as flat, high-speed relational rows (Subject, Predicate, Object) separated strictly by an indexed tenant_id and structural true/false flags to enable high-speed retrieval.
 
 🏗️ 4. BACKEND COMPONENT RESPONSIBILITIES
 The Python backend (FastAPI) handles the heavy-lifting of reasoning operations, schema inspection, and secure token verification.
 
 Supabase JWT Verification Gateway (app/dependencies.py): Intercepts incoming API requests from the web app, validates the cryptographic signature of the frontend user session token, and extracts the unique identity context to prevent cross-tenant security leaks.
 Multi-Dialect Metadata Inspector Service (app/services/db_extractor.py): Manages the automated relational database mapping phase. It establishes a generic, read-only session over the client's architecture, normalizes table structural relations across multiple engine dialects (PostgreSQL, MySQL, SQL Server), translates discovered foreign keys into semantic property constraints, and cuts off processing once the tenant's safety rule limit is reached.
-In-Memory Re-hydration Engine & Verification Routing (app/routers/reasoning.py): Responsible for real-time transaction query processing. It pulls static quad rules from Supabase, builds a temporary runtime ontology class framework within application memory, attaches the incoming agent's payload parameters, runs description logic inference via the reasoner, and flags logical violations before wiping the temporary memory context completely.
+In-Memory Re-hydration Engine & Verification Routing (app/routers/reasoning.py): Responsible for real-time transaction query processing. It pulls static quad rules from Supabase, attaches incoming payload parameters, runs validation via the ValidatorAgent, calculates a confidence score against policy thresholds, and flags logical violations before completing the request lifecycle.
 
 💻 5. FRONTEND INTERFACE REQUIREMENTS
 The Next.js frontend handles profile management, cluster metric tracking, and the progressive onboarding setup wizard.
@@ -91,6 +91,6 @@ Free Trial: Limits schema tracing to a sample depth of the first 500 rows per en
 Paid Premium: Deep structural trace processing up to 50,000+ data rows to uncover implicit schema constraints.
 
 🔒 7. OPERATIONAL PRINCIPLES & SYSTEM GUARDRAILS
-Payload-Driven Isolation: To guarantee sub-millisecond reasoning latencies, the live validation API layer runs completely stateless and decoupled from external data dependencies. Rather than executing continuous, slow network crawls to check user data states across client infrastructure at runtime, incoming payloads must bring their own data context. This design choice eliminates remote database connectivity lag during live agent queries, ensuring consistent, high-availability validation speeds.
+Payload-Driven Isolation: To guarantee rapid and isolated validation, the live validation API layer runs completely stateless and decoupled from external data dependencies. Rather than executing continuous, slow network crawls to check user data states across client infrastructure at runtime, incoming payloads must bring their own data context. This design choice eliminates remote database connectivity lag during live agent queries, ensuring consistent, high-availability validation.
 Transient Memory Lifecycle Management: To enable high scalability and prevent server memory bloating, graph instances loaded in the FastAPI server context exist strictly for the duration of a single verification request function. Once the endpoint evaluates logic truths and returns its final verification response (is_valid: true/false), the localized virtual graph memory space is systematically wiped out by the system garbage collector.
 Read-Only Structural Introspection: During the progressive server setup phase, the backend metadata extractor connects to client systems using strict, enforced read-only session profiles. When connecting to a PostgreSQL target database, the service forces read-only connection limits (-c default_transaction_read_only=on). This ensures the platform can never accidentally rewrite, modify, or truncate any schema elements on production systems.

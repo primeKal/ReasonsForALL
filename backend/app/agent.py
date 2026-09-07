@@ -31,11 +31,15 @@ class WorkflowOutput(BaseModel):
 class VerifyOutput(BaseModel):
     intent: str = Field(description="The detected intent: 'verify'")
     agent_intent: str = Field(description="The agent intent string that was verified")
-    is_valid: bool = Field(description="Whether the payload passed all business rules")
-    violations: List[str] = Field(description="List of policy violations (empty if valid)")
-    inference_time_ms: float = Field(description="Time taken for ontology inference (ms)")
-    reasoning: str = Field(description="LLM reasoning summary of the verification result")
-    message: str = Field(description="Human-readable result message")
+    is_valid: bool = Field(description="Whether the request was accepted based on confidence score and threshold")
+    verdict: str = Field(description="Verdict: 'accepted' or 'blocked'")
+    confidence_score: float = Field(description="Confidence score (0.0 to 1.0) evaluating compliance")
+    threshold: float = Field(description="Acceptance threshold (0.0 to 1.0)")
+    violations: List[str] = Field(description="List of policy violations (empty if accepted)")
+    reasoning: str = Field(description="Validator agent reasoning summary")
+    message: str = Field(description="Human-readable result message with confidence and threshold")
+    description: str = Field(default="", description="Detailed explanation of the verdict")
+    recommendation: str = Field(default="", description="Actionable recommendation")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,46 +139,48 @@ For verify:
 
 def _run_verify(node_input: Dict[str, Any]) -> VerifyOutput:
     """
-    Executes the business rules verification pipeline:
+    Executes the business rules verification pipeline using ValidatorAgent:
       1. Fetches the server config from Supabase by server_id (server_key)
-      2. Loads all stored TBox quads/rules for that server
-      3. Re-hydrates the OWL ontology in memory
-      4. Validates the payload against the active rules
-      5. Uses LLM reasoning to produce a human-readable explanation
-
-    This node is only executed when intent == 'verify'.
-    If intent == 'extract', this node is skipped by the IntentRouterNode.
+      2. Loads stored rules (quads) and text policies for that server
+      3. Dispatches to ValidatorAgent to compute confidence score and apply threshold
+      4. Returns structured VerifyOutput (accepted or blocked)
     """
-    print("\n>>> [Verify Branch] Starting business rules verification...")
+    print("\n>>> [Verify Branch] Starting business rules verification with ValidatorAgent...")
 
     if node_input.get("intent") != "verify":
-        # This should not happen in normal flow (router handles routing),
-        # but as a safety guard return a passthrough marker.
         print("[Verify Branch] Skipping — intent is not 'verify'.")
         return VerifyOutput(
             intent="extract",
             agent_intent="",
             is_valid=False,
+            verdict="blocked",
+            confidence_score=0.0,
+            threshold=0.70,
             violations=["Internal routing error: verify_branch called on non-verify intent."],
-            inference_time_ms=0.0,
             reasoning="N/A",
-            message="Routing error. Please retry."
+            message="Routing error. Please retry.",
+            description="Routing mismatch.",
+            recommendation="Retry with verify intent."
         )
 
     server_id = (node_input.get("server_id") or "").strip()
     agent_intent = (node_input.get("agent_intent") or "").strip()
     payload = node_input.get("payload") or {}
-    include_details = node_input.get("include_details", True)
+    threshold = float(node_input.get("threshold", 0.70)) if node_input.get("threshold") is not None else 0.70
 
     if not server_id:
         return VerifyOutput(
             intent="verify",
             agent_intent=agent_intent,
             is_valid=False,
+            verdict="blocked",
+            confidence_score=0.0,
+            threshold=threshold,
             violations=["No server_id provided. Cannot fetch business rules without a valid server ID."],
-            inference_time_ms=0.0,
             reasoning="The verify request is missing a 'server_id'. Provide the server ID from your ReasonsForAll dashboard.",
-            message="Verification failed: missing server_id."
+            message="Verification failed: missing server_id.",
+            description="Missing server identifier.",
+            recommendation="Provide a valid server_id in the request payload."
         )
 
     # --- 1. Fetch server config from Supabase ---
@@ -186,10 +192,14 @@ def _run_verify(node_input: Dict[str, Any]) -> VerifyOutput:
             intent="verify",
             agent_intent=agent_intent,
             is_valid=False,
+            verdict="blocked",
+            confidence_score=0.0,
+            threshold=threshold,
             violations=[f"Failed to connect to Supabase: {e}"],
-            inference_time_ms=0.0,
             reasoning="Could not reach the Supabase database to load server config. Check SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables.",
-            message="Verification failed: Supabase connection error."
+            message="Verification failed: Supabase connection error.",
+            description="Database connection failure.",
+            recommendation="Check backend Supabase credentials."
         )
 
     if not db_server:
@@ -197,43 +207,55 @@ def _run_verify(node_input: Dict[str, Any]) -> VerifyOutput:
             intent="verify",
             agent_intent=agent_intent,
             is_valid=False,
+            verdict="blocked",
+            confidence_score=0.0,
+            threshold=threshold,
             violations=[f"Server '{server_id}' not found in ReasonsForAll. Has it been trained yet?"],
-            inference_time_ms=0.0,
             reasoning=f"No server configuration found for server_id='{server_id}'. You need to first run the extraction workflow to train the server, or verify the server_id is correct.",
-            message=f"Verification failed: server '{server_id}' not found."
+            message=f"Verification failed: server '{server_id}' not found.",
+            description="Unknown server configuration.",
+            recommendation="Train the server by running schema extraction first."
         )
 
     tenant_id = db_server.get("tenant_id", "")
     server_config_id = db_server.get("id")
 
-    # --- 2. Load quads from Supabase ---
+    # --- 2. Load quads and policies from Supabase ---
     try:
         db_quads = supabase_client.get_quads_for_server(tenant_id, server_config_id)
+        raw_policies = supabase_client.get_text_policies_for_server(tenant_id, server_config_id)
     except Exception as e:
         return VerifyOutput(
             intent="verify",
             agent_intent=agent_intent,
             is_valid=False,
+            verdict="blocked",
+            confidence_score=0.0,
+            threshold=threshold,
             violations=[f"Failed to fetch rules from Supabase: {e}"],
-            inference_time_ms=0.0,
             reasoning="Could not retrieve the stored business rules from Supabase.",
-            message="Verification failed: could not load rules."
+            message="Verification failed: could not load rules.",
+            description="Rules retrieval error.",
+            recommendation="Check Supabase rule quad store."
         )
 
-    if not db_quads:
+    if not db_quads and not raw_policies:
         return VerifyOutput(
             intent="verify",
             agent_intent=agent_intent,
             is_valid=False,
+            verdict="blocked",
+            confidence_score=0.0,
+            threshold=threshold,
             violations=[f"No rules found for server '{server_id}'. The server may not have been trained yet."],
-            inference_time_ms=0.0,
-            reasoning="The server exists but has no extracted rules in the quad store. Run the extraction workflow first by supplying a PostgreSQL URL to train this server.",
-            message=f"Verification failed: no rules found for server '{server_id}'."
+            reasoning="The server exists but has no extracted rules in the quad store. Run the extraction workflow first by supplying a database URL to train this server.",
+            message=f"Verification failed: no rules found for server '{server_id}'.",
+            description="No rules or policies found.",
+            recommendation="Extract schema rules from a database first."
         )
 
-    print(f"[Verify Branch] Loaded {len(db_quads)} rules for server '{server_id}'.")
+    print(f"[Verify Branch] Loaded {len(db_quads)} rules and {len(raw_policies or [])} policies for server '{server_id}'.")
 
-    # Map Supabase quads to standard ontology rule format
     quads = [
         {
             "subject": q["subject"],
@@ -243,69 +265,40 @@ def _run_verify(node_input: Dict[str, Any]) -> VerifyOutput:
         }
         for q in db_quads
     ]
+    policies = [
+        {"title": p.get("title", ""), "body": p.get("body", ""), "source_type": p.get("source_type", "inferred")}
+        for p in (raw_policies or [])
+    ]
 
-    # --- 3. Re-hydrate ontology and validate ---
-    from app.services.ontology_engine import OntologyEngine
-    engine = OntologyEngine(tenant_id=tenant_id)
-    validation_result = engine.validate_payload(
+    # --- 3. Execute validation with ValidatorAgent ---
+    from app.services.validator_agent import ValidatorAgent
+    from app.services.gemini_service import GeminiService
+
+    llm_key = (db_server.get("llm_api_key") or "").strip()
+    llm_provider = db_server.get("llm_provider", "gemini")
+    gemini_svc = GeminiService(api_key=llm_key, provider=llm_provider) if llm_key else GeminiService()
+
+    validator = ValidatorAgent(gemini_service=gemini_svc)
+    val_res = validator.validate(
         agent_intent=agent_intent,
         payload_data=payload,
-        quads=quads
+        quads=quads,
+        policies=policies,
+        threshold=threshold
     )
-
-    is_valid = validation_result.get("is_valid", False)
-    violations = validation_result.get("violations", [])
-    inference_time_ms = validation_result.get("inference_time_ms", 0.0)
-
-    print(f"[Verify Branch] Validation complete. is_valid={is_valid}, violations={violations}")
-
-    # --- 4. LLM Reasoning Mode: Generate a human-readable explanation ---
-    reasoning = ""
-    try:
-        gemini_svc = GeminiService()
-        if is_valid:
-            reasoning_prompt = (
-                "You are a business rules compliance AI. A transactional payload has been validated "
-                "against the active ontology-based business rules and PASSED.\n\n"
-                f"Agent Intent: {agent_intent}\n"
-                f"Payload: {json.dumps(payload, indent=2)}\n"
-                f"Rules Checked: {len(quads)} total rules loaded\n"
-                f"Inference Time: {inference_time_ms:.1f}ms\n\n"
-                "Provide a concise 2-3 sentence reasoning summary explaining WHY this transaction is "
-                "valid and compliant with the business rules. Be specific and professional."
-            )
-        else:
-            reasoning_prompt = (
-                "You are a business rules compliance AI. A transactional payload has FAILED validation "
-                "against the active ontology-based business rules.\n\n"
-                f"Agent Intent: {agent_intent}\n"
-                f"Payload: {json.dumps(payload, indent=2)}\n"
-                f"Violations Detected: {violations}\n"
-                f"Rules Checked: {len(quads)} total rules loaded\n"
-                f"Inference Time: {inference_time_ms:.1f}ms\n\n"
-                "Provide a concise 2-3 sentence reasoning summary explaining WHICH rules were violated, "
-                "WHY this transaction is non-compliant, and what the agent should do to correct it. "
-                "Be specific and actionable."
-            )
-        reasoning = gemini_svc._call_llm(reasoning_prompt, json_mode=False)
-        print(f"[Verify Branch] LLM reasoning generated ({len(reasoning)} chars).")
-    except Exception as e:
-        reasoning = f"LLM reasoning unavailable: {e}"
-        print(f"[Verify Branch] Warning: LLM reasoning failed: {e}")
-
-    if is_valid:
-        message = f"✅ VALID — The transaction '{agent_intent}' complies with all {len(quads)} business rules."
-    else:
-        message = f"❌ BLOCKED — The transaction '{agent_intent}' violates {len(violations)} business rule(s)."
 
     return VerifyOutput(
         intent="verify",
         agent_intent=agent_intent,
-        is_valid=is_valid,
-        violations=violations,
-        inference_time_ms=inference_time_ms,
-        reasoning=reasoning,
-        message=message
+        is_valid=val_res["is_valid"],
+        verdict=val_res["verdict"],
+        confidence_score=val_res["confidence_score"],
+        threshold=val_res["threshold"],
+        violations=val_res["violations"],
+        reasoning=val_res.get("description", ""),
+        message=val_res["message"],
+        description=val_res.get("description", ""),
+        recommendation=val_res.get("recommendation", "")
     )
 
 
