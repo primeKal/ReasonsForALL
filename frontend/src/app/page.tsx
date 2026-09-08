@@ -8,53 +8,53 @@ import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 
 export default function LandingPage() {
-  const [activeTab, setActiveTab] = useState<'text' | 'logical'>('text');
+  const [selectedDemoIndex, setSelectedDemoIndex] = useState(0);
   
   // Interactive mock queries for the live playground
-  const mockQueries = {
-    text: [
-      {
-        query: "Can an anonymous user delete a rating from the database?",
-        verdict: "BLOCKED",
-        isValid: false,
-        latency: "4.2ms",
-        reason: "Violates: User Identity Integrity. Anonymous users are strictly prohibited from performing write or delete operations on system records."
-      },
-      {
-        query: "Can a customer submit a rating for an order they completed?",
-        verdict: "PERMITTED",
-        isValid: true,
-        latency: "3.5ms",
-        reason: "Complies with: Rating Eligibility. Users who completed an order are authorized to submit a single rating."
-      },
-      {
-        query: "Can an unauthenticated guest user place a new order?",
-        verdict: "BLOCKED",
-        isValid: false,
-        latency: "3.8ms",
-        reason: "Violates: User Identity Integrity. Guest accounts must associate with a verified profile before checkout is permitted."
-      }
-    ],
-    logical: [
-      {
-        query: "Waiter is-a Employee; Waiter placing transaction",
-        verdict: "PERMITTED",
-        isValid: true,
-        latency: "1.9ms",
-        reason: "Consistent logical association. Employee is authorized to place transactions, and Waiter is a valid sub-role of Employee."
-      },
-      {
-        query: "Waiter disjointWith Buyer; Waiter placing Buyer transaction",
-        verdict: "BLOCKED",
-        isValid: false,
-        latency: "2.1ms",
-        reason: "Inconsistent assertion. Waiters are logically disjoint from Buyers, preventing them from performing buyer-exclusive transactions."
-      }
-    ]
-  };
+  const mockQueries = [
+    {
+      query: "Can an anonymous user delete a rating from the database?",
+      verdict: "BLOCKED",
+      isValid: false,
+      confidence: 0.94,
+      threshold: 0.70,
+      reason: "Violates: User Identity Integrity. Anonymous users are strictly prohibited from performing write or delete operations on system records."
+    },
+    {
+      query: "Can a customer submit a rating for an order they completed?",
+      verdict: "PERMITTED",
+      isValid: true,
+      confidence: 0.88,
+      threshold: 0.70,
+      reason: "Complies with: Rating Eligibility. Users who completed an order are authorized to submit a single rating."
+    },
+    {
+      query: "Can an unauthenticated guest user place a new order?",
+      verdict: "BLOCKED",
+      isValid: false,
+      confidence: 0.91,
+      threshold: 0.70,
+      reason: "Violates: User Identity Integrity. Guest accounts must associate with a verified profile before checkout is permitted."
+    },
+    {
+      query: "Can a store manager approve a refund exceeding $5,000 without dual authorization?",
+      verdict: "BLOCKED",
+      isValid: false,
+      confidence: 0.96,
+      threshold: 0.75,
+      reason: "Violates: Financial Controls. Refunds exceeding $5,000 require secondary approval from a finance administrator."
+    },
+    {
+      query: "Can an assigned support agent view masked order records for an active ticket?",
+      verdict: "PERMITTED",
+      isValid: true,
+      confidence: 0.85,
+      threshold: 0.70,
+      reason: "Complies with: Support Data Access. Support staff assigned to open tickets may view relevant masked order entries."
+    }
+  ];
 
-  const [selectedDemoIndex, setSelectedDemoIndex] = useState(0);
-  const currentDemo = mockQueries[activeTab][selectedDemoIndex] || mockQueries[activeTab][0];
+  const currentDemo = mockQueries[selectedDemoIndex] || mockQueries[0];
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 selection:bg-violet-500/30 selection:text-white">
@@ -157,35 +157,25 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
               {/* Left Side: Select Query */}
               <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
-                <div className="space-y-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-violet-400 block mb-1">Select Reasoning Mode</span>
-                  <div className="flex gap-1.5 p-1 bg-slate-950 border border-white/5 rounded-xl">
-                    <button 
-                      onClick={() => { setActiveTab('text'); setSelectedDemoIndex(0); }}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'text' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                      📋 Text Policies
-                    </button>
-                    <button 
-                      onClick={() => { setActiveTab('logical'); setSelectedDemoIndex(0); }}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'logical' ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}
-                    >
-                      🧪 Logical reasoning
-                    </button>
+                <div className="space-y-3 flex-1">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-violet-400">Sample Policy Scenarios</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Select a scenario to test</span>
                   </div>
-                </div>
-
-                <div className="space-y-3 flex-1 pt-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Select a query to test</span>
-                  <div className="space-y-2">
-                    {mockQueries[activeTab].map((item, idx) => (
+                  <div className="space-y-2.5">
+                    {mockQueries.map((item, idx) => (
                       <button
                         key={idx}
                         onClick={() => setSelectedDemoIndex(idx)}
-                        className={`w-full p-4 rounded-xl text-left text-xs transition-all border ${selectedDemoIndex === idx ? 'bg-violet-500/10 border-violet-500/40 text-white' : 'bg-slate-950/60 border-white/5 text-slate-400 hover:border-white/10 hover:text-slate-200'}`}
+                        className={`w-full p-4 rounded-xl text-left text-xs transition-all border ${selectedDemoIndex === idx ? 'bg-violet-500/10 border-violet-500/40 text-white shadow-lg shadow-violet-500/5' : 'bg-slate-950/60 border-white/5 text-slate-400 hover:border-white/10 hover:text-slate-200'}`}
                       >
-                        <span className="font-semibold block mb-1">{activeTab === 'text' ? 'User Query:' : 'DL assertion:'}</span>
-                        <code className="block break-words italic">"{item.query}"</code>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-semibold text-slate-300">Policy Query #{idx + 1}</span>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${item.isValid ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                            {item.verdict}
+                          </span>
+                        </div>
+                        <code className="block break-words italic text-slate-200">"{item.query}"</code>
                       </button>
                     ))}
                   </div>
@@ -201,9 +191,13 @@ export default function LandingPage() {
                       <span className="w-3 h-3 rounded-full bg-red-500/80"></span>
                       <span className="w-3 h-3 rounded-full bg-yellow-500/80"></span>
                       <span className="w-3 h-3 rounded-full bg-green-500/80"></span>
-                      <span className="text-xs font-mono text-slate-400 ml-2">Ralles Engine Terminal v1.2</span>
+                      <span className="text-xs font-mono text-slate-400 ml-2">Ralles Validator Agent Terminal</span>
                     </div>
-                    <span className="text-[10px] font-mono text-violet-400">LATENCY: {currentDemo.latency}</span>
+                    <div className="flex items-center gap-2 font-mono text-[10px]">
+                      <span className="text-violet-400 font-semibold">CONFIDENCE: {(currentDemo.confidence * 100).toFixed(0)}%</span>
+                      <span className="text-slate-600">|</span>
+                      <span className="text-slate-400">THRESHOLD: {(currentDemo.threshold * 100).toFixed(0)}%</span>
+                    </div>
                   </div>
 
                   {/* Terminal Body */}
@@ -216,8 +210,8 @@ export default function LandingPage() {
                     </div>
 
                     <div>
-                      <span className="text-slate-500 block mb-1">&gt; VERIFYING LOGICAL ASSOCIATION GRAPH:</span>
-                      <span className="text-cyan-400 block animate-pulse">● Connecting schema policies... done</span>
+                      <span className="text-slate-500 block mb-1">&gt; VALIDATOR AGENT EVALUATION:</span>
+                      <span className="text-cyan-400 block animate-pulse">● Scoring confidence against schema policies... complete</span>
                     </div>
 
                     <div className="pt-2">
@@ -226,11 +220,14 @@ export default function LandingPage() {
                         <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${currentDemo.isValid ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                           {currentDemo.verdict}
                         </span>
+                        <span className="text-slate-400 text-[10px]">
+                          (Confidence {(currentDemo.confidence * 100).toFixed(0)}% {currentDemo.isValid ? '≥' : '<'} Threshold {(currentDemo.threshold * 100).toFixed(0)}%)
+                        </span>
                       </div>
                     </div>
 
                     <div className="p-3 bg-white/5 rounded-lg border border-white/5 text-slate-300 mt-2 leading-relaxed">
-                      <span className="font-bold text-slate-100 block mb-1">Reasoning steps:</span>
+                      <span className="font-bold text-slate-100 block mb-1">Reasoning analysis:</span>
                       {currentDemo.reason}
                     </div>
                   </div>
@@ -245,7 +242,7 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-white">The Ralles Tech Stack</h2>
-              <p className="text-slate-400 max-w-2xl mx-auto text-base">Accurate guardrails built on multi-agent synthesis and logical associations. Fully verified by <a href="https://reasons-for-all-i55a.vercel.app/" className="text-violet-400 hover:underline">reasons-for-all-i55a.vercel.app</a>.</p>
+              <p className="text-slate-400 max-w-2xl mx-auto text-base">Accurate guardrails built on multi-agent synthesis and verified business policies. Fully verified by <a href="https://reasons-for-all-i55a.vercel.app/" className="text-violet-400 hover:underline">reasons-for-all-i55a.vercel.app</a>.</p>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
@@ -275,11 +272,11 @@ export default function LandingPage() {
               <Card className="border-white/5 shadow-lg bg-slate-950/60 backdrop-blur-sm hover:border-violet-500/20 transition-all group">
                 <CardHeader>
                   <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center text-2xl mb-4 group-hover:scale-105 transition-transform">🛑</div>
-                  <CardTitle className="text-white">One-Click Logic Blocking</CardTitle>
+                  <CardTitle className="text-white">One-Click Policy Blocking</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    A centralized control panel to immediately block all AI agents and connected client systems from executing specific logical actions or accessing certain resources globally.
+                    A centralized control panel to immediately block all AI agents and connected client systems from executing prohibited actions or accessing restricted resources globally.
                   </p>
                 </CardContent>
               </Card>
@@ -303,7 +300,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400 leading-relaxed text-sm">
-                    Thoroughly audit what each AI agent does. View detailed logical evaluation graphs, latency metrics, and reason traces to maintain complete transparency.
+                    Thoroughly audit what each AI agent does. View detailed policy evaluation logs, confidence scores, and reason traces to maintain complete transparency.
                   </p>
                 </CardContent>
               </Card>
@@ -378,8 +375,8 @@ export default function LandingPage() {
                     icon: '🔗',
                     color: 'from-cyan-600 to-teal-500',
                     glow: 'rgba(6,182,212,0.3)',
-                    title: 'Is-A & Is-Like',
-                    desc: 'LLM extracts hierarchical and similarity relationships between concept models (e.g. Waiter is-a Employee).',
+                    title: 'Role & Entity Hierarchy',
+                    desc: 'LLM extracts hierarchical and role relationships between concept models (e.g. Manager inherits Staff permissions).',
                   },
                 ].map((item, i) => (
                   <div key={i} className="flex flex-col items-center text-center group">
